@@ -6,12 +6,13 @@
 
 class Gcode {
 public:
-    Gcode(const char *gcode_, const std::regex regex_);
-    std::regex getRegex() { return regex; }
-    const char* getGcode() { return gcode.c_str(); }
+    Gcode(const char *gcode_, const std::string regex_);
+    const char* getRegex() { return regex.c_str(); };
+    const char* getGcode() { return gcode.c_str(); };
+    virtual ~Gcode() { };
 
 private:
     std::string gcode;
-    std::regex regex;
+    std::string regex;
 };
 #endif /* GCODE_H_ */
