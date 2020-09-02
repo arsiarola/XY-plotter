@@ -89,17 +89,14 @@ static Gcode *gcodes[GCODE_SIZE] = {
 };
 
 void parseCode(std::string s) {
-	auto first_token = s.substr(0, s.find(' '));
-	uint8_t index = -1;
-	bool found = false;
-	for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
-		if (first_token == gcodes[i]->getGcode()) {
-			index = i;
-			break;
-		}
+
+	auto token = s.substr(0, s.find(' '));
+	if(token == s || token == ""){
+		std::cout << "no space found!" << std::endl;
+		return;
 	}
 
-	if (gcodes[index]->getGcode() == M2.getGcode()) {
+	if (token == M2.getGcode()) {
 
 		if (std::sscanf(
 			s.c_str(),
@@ -112,7 +109,7 @@ void parseCode(std::string s) {
 		}
 	}
 
-	else if (gcodes[index]->getGcode() == M11.getGcode()) {
+	else if (token == M11.getGcode()) {
 
 
 		if (std::sscanf(
@@ -130,7 +127,7 @@ void parseCode(std::string s) {
 		}
 	}
 
-	else if (gcodes[index]->getGcode() == M1.getGcode()) {
+	else if (token == M1.getGcode()) {
 
 		if (std::sscanf(
 			s.c_str(),
@@ -141,13 +138,13 @@ void parseCode(std::string s) {
 		}
 	}
 
-	else if (gcodes[index]->getGcode() == M10.getGcode()) {
-		std::cout << gcodes[index]->getGcode() << " XY "
+	else if (token == M10.getGcode()) {
+		std::cout << token << " XY "
 			<< height << " " << width << " 0.00 0.00 A" << dirX << " B" << dirY << " H0 "
 			<< speed << " U" << savePenUp << " D" << savePenDown << std::endl;
 	}
 
-	else if (gcodes[index]->getGcode() == M5.getGcode()) {
+	else if (token == M5.getGcode()) {
 
 		if (std::sscanf(
 			s.c_str(),
@@ -166,7 +163,7 @@ void parseCode(std::string s) {
 		}
 	}
 
-	else if (gcodes[index]->getGcode() == M4.getGcode()) {
+	else if (token == M4.getGcode()) {
 		int laserPower;
 		if (std::sscanf(
 			s.c_str(),
@@ -176,11 +173,11 @@ void parseCode(std::string s) {
 		}
 	}
 
-	else if (gcodes[index]->getGcode() == G28.getGcode()) {
+	else if (token == G28.getGcode()) {
 		std::cout << "Move to origo" << std::endl;
 	}
 
-	else if (gcodes[index]->getGcode() == G1.getGcode()) {
+	else if (token == G1.getGcode()) {
 
 		if (std::sscanf(
 			s.c_str(),

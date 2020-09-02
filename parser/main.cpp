@@ -28,8 +28,7 @@ int main() {
 
 	while (getline(input, str)) {
 		i++;
-        //str.append("\n");
-		//std::cout << str ;
         parseCode(str);
+        std::cout << "number : " << i << std::endl;
     }
 }
