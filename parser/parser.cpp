@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include "Gcode.h"
+#include "parser.h"
 
 #define _CRT_SECURE_NO_WARNINGS
 #pragma warning(disable:4996)
@@ -192,26 +193,16 @@ void parseCode(std::string s) {
 			std::cout << moveA << std::endl;
 		}
 	}
+	else
+	{
+		std::cout << "Error! " << s << std::endl;
+	}
 
-	system("pause");
+
+	//system("pause");
 }
 
 
 
-
-int main() {
-	//std::string s = "M2 U150 D90";
-	//std::string s = "M11 -1 2 3 4";
-	//std::string s = "M1 90"; 
-	//std::string s = "M10";
-	//std::string s = "M5 A0 B0 H310 W380 S80";
-	//std::string s = "M4 140";
-	//std::string s = "G1 X85.14 Y117.29 A0";
-	parseCode("M10");
-	parseCode("M5 A0 B0 H310 W380 S80");
-	parseCode("M2 U150 D90");
-	parseCode("M10");
-	parseCode("G28");
-}
 
 
