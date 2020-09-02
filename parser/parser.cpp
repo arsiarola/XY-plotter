@@ -91,7 +91,7 @@ static Gcode *gcodes[GCODE_SIZE] = {
 void parseCode(std::string s) {
 
 	auto token = s.substr(0, s.find(' '));
-	if(token == s || token == ""){
+	if(token == ""){
 		std::cout << "no space found!" << std::endl;
 		return;
 	}
