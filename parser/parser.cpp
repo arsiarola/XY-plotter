@@ -42,10 +42,10 @@ Gcode M10 = Gcode("M10",
 );
 Gcode M11 = Gcode("M11",
 	"M11 "
-	"%d "
-	"%d "
-	"%d "
-	"%d"
+	// "%d "
+	// "%d "
+	// "%d "
+	// "%d"
 );
 Gcode M1 = Gcode("M1",
 	"M1 "
