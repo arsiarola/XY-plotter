@@ -36,3 +36,9 @@ program
 
 #Mac
 .DS_Store
+
+#MCU files
+cr_cpp_config.cpp
+cr_startup_lpc15xx.cpp
+sysinit.c
+crp.c

@@ -87,12 +87,13 @@ Gcode G1 = Gcode("G1",
 //	&G1
 //};
 
-void parseCode(const char *s) {
-
+void parseCode(const char *str) {
+    char *s;
+    strcpy(s, str);
 	auto token = strchr(s, ' ');
 	if(token == NULL){
 		//std::cout << "no space found!" << std::endl;
-		return;
+        token = s;
 	}
 
 	if (token == M2.getGcode()) {
@@ -109,8 +110,6 @@ void parseCode(const char *s) {
 	}
 
 	else if (token == M11.getGcode()) {
-
-
 		// if (sscanf(
 		// 	s,
 		// 	M11.getFormat(),
