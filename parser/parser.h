@@ -1,10 +1,6 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <string>
-
-
-void parseCode(std::string s);
-
+void parseCode(const char *s);
 
 #endif /* PARSER_H */

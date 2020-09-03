@@ -1,7 +1,6 @@
 #include "Gcode.h"
 
-Gcode::Gcode(const char *gcode_, const std::string regex_) :
+Gcode::Gcode(const char *gcode_, const char *format_) :
         gcode(gcode_),
-        regex(regex_)
-{
-}
+        format(format_)
+{ }

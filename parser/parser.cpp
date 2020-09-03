@@ -1,11 +1,10 @@
 #include <stdio.h>
-#include <iostream>
-#include <string>
+#include <string.h>
 #include "Gcode.h"
 #include "parser.h"
 
-#define _CRT_SECURE_NO_WARNINGS
-#pragma warning(disable:4996)
+//#define _CRT_SECURE_NO_WARNINGS
+//#pragma warning(disable:4996)
 
 #define GCODE_SIZE 8
 
@@ -77,125 +76,125 @@ Gcode G1 = Gcode("G1",
 	"A" "%d" //A0
 );
 
-static Gcode *gcodes[GCODE_SIZE] = {
-	&M2,
-	&M10,
-	&M11,
-	&M1,
-	&M5,
-	&M4,
-	&G28,
-	&G1
-};
+//static Gcode *gcodes[GCODE_SIZE] = {
+//	&M2,
+//	&M10,
+//	&M11,
+//	&M1,
+//	&M5,
+//	&M4,
+//	&G28,
+//	&G1
+//};
 
-void parseCode(std::string s) {
+void parseCode(const char *s) {
 
-	auto token = s.substr(0, s.find(' '));
-	if(token == ""){
-		std::cout << "no space found!" << std::endl;
+	auto token = strchr(s, ' ');
+	if(token == NULL){
+		//std::cout << "no space found!" << std::endl;
 		return;
 	}
 
 	if (token == M2.getGcode()) {
 
-		if (std::sscanf(
-			s.c_str(),
-			M2.getRegex(),
+		if (sscanf(
+			s,
+			M2.getFormat(),
 			&savePenUp,
 			&savePenDown) >= 2) {
-			std::cout << "M2: " << std::endl;
-			std::cout << savePenUp << std::endl;
-			std::cout << savePenDown << std::endl;
+			//std::cout << "M2: " << std::endl;
+			//std::cout << savePenUp << std::endl;
+			//std::cout << savePenDown << std::endl;
 		}
 	}
 
 	else if (token == M11.getGcode()) {
 
 
-		// if (std::sscanf(
-		// 	s.c_str(),
-		// 	M11.getRegex(),
+		// if (sscanf(
+		// 	s,
+		// 	M11.getFormat(),
 		// 	&L4,
 		// 	&L3,
 		// 	&L2,
 		// 	&L1) >= 4) {
-		// 	std::cout << "M11: " << std::endl;
-		// 	std::cout << L4 << std::endl;
-		// 	std::cout << L3 << std::endl;
-		// 	std::cout << L2 << std::endl;
-		// 	std::cout << L1 << std::endl;
+		// 	//std::cout << "M11: " << std::endl;
+		// 	//std::cout << L4 << std::endl;
+		// 	//std::cout << L3 << std::endl;
+		// 	//std::cout << L2 << std::endl;
+		// 	//std::cout << L1 << std::endl;
 		// }
 
 
-		std::cout << "Limits to be added" << std::endl;
+		//std::cout << "Limits to be added" << std::endl;
 	}
 
 	else if (token == M1.getGcode()) {
 
-		if (std::sscanf(
-			s.c_str(),
-			M1.getRegex(),
+		if (sscanf(
+			s,
+			M1.getFormat(),
 			&penPos) >= 1) {
-			std::cout << "M1: " << std::endl;
-			std::cout << penPos << std::endl;
+			//std::cout << "M1: " << std::endl;
+			//std::cout << penPos << std::endl;
 		}
 	}
 
 	else if (token == M10.getGcode()) {
-		std::cout << token << " XY "
-			<< height << " " << width << " 0.00 0.00 A" << dirX << " B" << dirY << " H0 "
-			<< speed << " U" << savePenUp << " D" << savePenDown << std::endl;
+		//std::cout << token << " XY ";
+			//std::cout height << " " << width << " 0.00 0.00 A" << dirX << " B" << dirY << " H0 ";
+			//std::cout speed << " U" << savePenUp << " D" << savePenDown << std::endl;
 	}
 
 	else if (token == M5.getGcode()) {
 
-		if (std::sscanf(
-			s.c_str(),
-			M5.getRegex(),
+		if (sscanf(
+			s,
+			M5.getFormat(),
 			&dirX,
 			&dirY,
 			&height,
 			&width,
 			&speed) >= 5) {
-			std::cout << "M5: " << std::endl;
-			std::cout << dirX << std::endl;
-			std::cout << dirY << std::endl;
-			std::cout << height << std::endl;
-			std::cout << width << std::endl;
-			std::cout << speed << std::endl;
+			//std::cout << "M5: " << std::endl;
+			//std::cout << dirX << std::endl;
+			//std::cout << dirY << std::endl;
+			//std::cout << height << std::endl;
+			//std::cout << width << std::endl;
+			//std::cout << speed << std::endl;
 		}
 	}
 
 	else if (token == M4.getGcode()) {
 		int laserPower;
-		if (std::sscanf(
-			s.c_str(),
-			M4.getRegex(),
+		if (sscanf(
+			s,
+			M4.getFormat(),
 			&laserPower) >= 1) {
-			std::cout << laserPower << std::endl;
+			//std::cout << laserPower << std::endl;
 		}
 	}
 
 	else if (token == G28.getGcode()) {
-		std::cout << "Move to origo" << std::endl;
+		//std::cout << "Move to origo" << std::endl;
 	}
 
 	else if (token == G1.getGcode()) {
 
-		if (std::sscanf(
-			s.c_str(),
-			G1.getRegex(),
+		if (sscanf(
+			s,
+			G1.getFormat(),
 			&moveX,
 			&moveY,
 			&moveA) >= 3) {
-			std::cout << moveX << std::endl;
-			std::cout << moveY << std::endl;
-			std::cout << moveA << std::endl;
+			//std::cout << moveX << std::endl;
+			//std::cout << moveY << std::endl;
+			//std::cout << moveA << std::endl;
 		}
 	}
 	else
 	{
-		std::cout << "Error! " << s << std::endl;
+		//std::cout << "Error! " << s << std::endl;
 	}
 
 
