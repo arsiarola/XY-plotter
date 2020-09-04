@@ -55,23 +55,28 @@ int main() {
     //}
 #else
     ITM_init();
-    char buffer[128];
+    char buffer[128]="";
     int c;
     int index = 0;
     while (1) {
         c = Board_UARTGetChar();
         if (c == EOF) continue;
-        if (c == '\n' || c == '\r') {
-            parseCode(buffer);
-            index = 0;
-            buffer[0] = ' 0';
-            Board_UARTPutSTR("OK\r\n");
-        }
-        else {
+        //ITM_print("%c",c);
+
+        if(index < 128 - 1) {
             buffer[index] = c;
-            buffer[index + 1] = '\0';
+            index++;
         }
 
+        if (c == '\n' || c == '\r') {
+        	//ITM_write("test\n\n");
+            buffer[index] = '\0';
+            ITM_write(buffer);
+            parseCode(buffer);
+            index = 0;
+            buffer[0] = '\0';
+            Board_UARTPutSTR("OK\n");
+        }
 
     }
 

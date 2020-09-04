@@ -2,6 +2,7 @@
 #include <string.h>
 #include "Gcode.h"
 #include "parser.h"
+#include "../ITM_write.h"
 
 //#define _CRT_SECURE_NO_WARNINGS
 //#pragma warning(disable:4996)
@@ -88,13 +89,24 @@ Gcode G1 = Gcode("G1",
 //};
 
 void parseCode(const char *str) {
-    char *s;
-    strcpy(s, str);
-	auto token = strchr(s, ' ');
+	//ITM_write("Test1\n\n");
+    char s[128];
+    //ITM_write("Test2\n\n");
+    strncpy(s, str, 128);
+    //ITM_write("Test3\n\n");
+	char *token = strchr(s, ' ');
+	//ITM_write("Test4\n\n");
 	if(token == NULL){
 		//std::cout << "no space found!" << std::endl;
-        token = s;
+		ITM_write("No space found\n");
+
 	}
+	else{
+		s[token-s] = '\0';
+	}
+
+	ITM_print("Token: %s\n",s);
+	ITM_print("Gcode: %s",G1.getGcode());
 
 	if (token == M2.getGcode()) {
 
@@ -106,6 +118,7 @@ void parseCode(const char *str) {
 			//std::cout << "M2: " << std::endl;
 			//std::cout << savePenUp << std::endl;
 			//std::cout << savePenDown << std::endl;
+			//ITM_write("M2\n");
 		}
 	}
 
@@ -126,6 +139,7 @@ void parseCode(const char *str) {
 
 
 		//std::cout << "Limits to be added" << std::endl;
+		//ITM_write("M11\n");
 	}
 
 	else if (token == M1.getGcode()) {
@@ -136,6 +150,7 @@ void parseCode(const char *str) {
 			&penPos) >= 1) {
 			//std::cout << "M1: " << std::endl;
 			//std::cout << penPos << std::endl;
+			//ITM_write("M1\n");
 		}
 	}
 
@@ -143,6 +158,7 @@ void parseCode(const char *str) {
 		//std::cout << token << " XY ";
 			//std::cout height << " " << width << " 0.00 0.00 A" << dirX << " B" << dirY << " H0 ";
 			//std::cout speed << " U" << savePenUp << " D" << savePenDown << std::endl;
+		//ITM_write("M10\n");
 	}
 
 	else if (token == M5.getGcode()) {
@@ -161,6 +177,7 @@ void parseCode(const char *str) {
 			//std::cout << height << std::endl;
 			//std::cout << width << std::endl;
 			//std::cout << speed << std::endl;
+			//ITM_write("M5\n");
 		}
 	}
 
@@ -171,14 +188,17 @@ void parseCode(const char *str) {
 			M4.getFormat(),
 			&laserPower) >= 1) {
 			//std::cout << laserPower << std::endl;
+			//ITM_write("M4\n");
 		}
 	}
 
 	else if (token == G28.getGcode()) {
 		//std::cout << "Move to origo" << std::endl;
+		//ITM_write("G28\n");
 	}
 
-	else if (token == G1.getGcode()) {
+	//else if (s == G1.getGcode()) {
+	else if (strcmp(s,G1.getGcode())==0) {
 
 		if (sscanf(
 			s,
@@ -189,12 +209,17 @@ void parseCode(const char *str) {
 			//std::cout << moveX << std::endl;
 			//std::cout << moveY << std::endl;
 			//std::cout << moveA << std::endl;
+
 		}
+		ITM_write("G1\n");
 	}
 	else
 	{
 		//std::cout << "Error! " << s << std::endl;
+		//ITM_write("Error!\n");
 	}
+
+	ITM_write("Parser done\n");
 
 
 	//system("pause");
