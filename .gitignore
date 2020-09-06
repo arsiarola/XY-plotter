@@ -1,6 +1,6 @@
 program
-*.swp
-*.swo
+*.swp #vim backup
+*.swo #vim backup
 
 #General build artifacts
 *.mk
