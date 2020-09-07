@@ -9,6 +9,11 @@
 //#define TESTING
 
 #include "parser/parser.h"
+#include <cstdlib>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "Syslog.h"
+#include "heap_lock_monitor.h"
 
 #ifdef TESTING
 //TODO: change to c style file handling 
@@ -31,8 +36,59 @@ static void prvSetupHardware(void) {
 	Board_LED_Set(0, false);
 }
 
+Syslog log = Syslog();
+
+static void vTask1(void *pvParameters) {
+    //ITM_init();
+    char buffer[128]="";
+    int c;
+    int index = 0;
+    while (1) {
+        //c = Board_UARTGetChar();
+    	c=log.read();
+        if (c == EOF) continue;
+        //ITM_print("%c",c);
+
+        if(index < 128 - 1) {
+            buffer[index] = c;
+            index++;
+        }
+
+        if (c == '\n' || c == '\r') {
+        	//ITM_write("test\n\n");
+            buffer[index] = '\0';
+            ITM_write(buffer);
+            parseCode(buffer);
+            index = 0;
+            buffer[0] = '\0';
+            //Board_UARTPutSTR("OK\r\n");
+            log.writeString("OK\r\n");
+        }
+        //vTaskDelay(10);
+    }
+}
+
+extern "C" {
+
+void vConfigureTimerForRunTimeStats( void ) {
+	Chip_SCT_Init(LPC_SCTSMALL1);
+	LPC_SCTSMALL1->CONFIG = SCT_CONFIG_32BIT_COUNTER;
+	LPC_SCTSMALL1->CTRL_U = SCT_CTRL_PRE_L(255) | SCT_CTRL_CLRCTR_L; // set prescaler to 256 (255 + 1), and start timer
+}
+}
+
 int main() {
 	prvSetupHardware();
+
+	xTaskCreate(vTask1, "vTask1",
+				configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
+				(TaskHandle_t *) NULL);
+
+	vTaskStartScheduler();
+
+
+
+
 
 #ifdef TESTING
 	//const char *s = "M2 U150 D90";
@@ -54,33 +110,10 @@ int main() {
     //    parseCode(str);
     //}
 #else
-    //ITM_init();
-    char buffer[128]="";
-    int c;
-    int index = 0;
-    while (1) {
-        c = Board_UARTGetChar();
-        if (c == EOF) continue;
-        //ITM_print("%c",c);
 
-        if(index < 128 - 1) {
-            buffer[index] = c;
-            index++;
-        }
-
-        if (c == '\n' || c == '\r') {
-        	//ITM_write("test\n\n");
-            buffer[index] = '\0';
-            ITM_write(buffer);
-            parseCode(buffer);
-            index = 0;
-            buffer[0] = '\0';
-            Board_UARTPutSTR("OK\r\n");
-        }
-
-    }
 
 
 #endif /* TESTING */
 	return 0;
 }
+
