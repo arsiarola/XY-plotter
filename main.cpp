@@ -54,7 +54,7 @@ int main() {
     //    parseCode(str);
     //}
 #else
-    ITM_init();
+    //ITM_init();
     char buffer[128]="";
     int c;
     int index = 0;
@@ -75,7 +75,7 @@ int main() {
             parseCode(buffer);
             index = 0;
             buffer[0] = '\0';
-            Board_UARTPutSTR("OK\n");
+            Board_UARTPutSTR("OK\r\n");
         }
 
     }

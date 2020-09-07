@@ -9,16 +9,19 @@
 
 #define GCODE_SIZE 8
 
+
+//M1
+uint8_t penPos = 0;
 //M2
-int savePenUp = 0;
-int savePenDown = 0;
+uint8_t savePenUp = 0;
+uint8_t savePenDown = 0;
 //M11
 int L4 = 0;
 int L3 = 0;
 int L2 = 0;
 int L1 = 0;
-//M1
-int penPos = 0;
+//M4
+uint8_t laserPower;
 //M5
 int dirX = 0;
 int dirY = 0;
@@ -29,6 +32,10 @@ int speed = 0;
 float moveX = 0;
 float moveY = 0;
 int moveA = 0;
+
+
+
+
 
 
 
@@ -89,73 +96,53 @@ Gcode G1 = Gcode("G1",
 //};
 
 void parseCode(const char *str) {
+
     char gcode[128];
     strncpy(gcode, str, 128);
+
+    trimTrailing(gcode);
+
 	char *token = strchr(gcode, ' ');
-	if(token == NULL){
-		ITM_write("No space found\n");
-	}
-	else{
+	if(token != NULL){
 		gcode[token-gcode] = '\0';
 	}
 
-	ITM_print("Token: %s\n",gcode);
-	ITM_print("Gcode: %s",G1.getGcode());
+	/*M1: Set pen position*/
+	if (strcmp(gcode, M1.getGcode()) == 0) {
+		if (sscanf(
+			str,
+			M1.getFormat(),
+			&penPos) == 1) {
+			ITM_write("M1: ");
+			ITM_print("pen position: %u\n",penPos);
+		}
+	}
 
-	if (strcmp(gcode, M2.getGcode()) == 0) {
+	/*M2: Save pen position*/
+	else if (strcmp(gcode, M2.getGcode()) == 0) {
 		if (sscanf(
 			str,
 			M2.getFormat(),
 			&savePenUp,
-			&savePenDown) >= 2) {
-			//std::cout << "M2: " << std::endl;
-			//std::cout << savePenUp << std::endl;
-			//std::cout << savePenDown << std::endl;
-			//ITM_write("M2\n");
+			&savePenDown) == 2) {
+			ITM_write("M2: ");
+			ITM_print("up: %u  down: %u\n",savePenUp,savePenDown);
 		}
 	}
 
-	else if (strcmp(gcode, M11.getGcode()) == 0) {
-		// if (sscanf(
-		// 	str,
-		// 	M11.getFormat(),
-		// 	&L4,
-		// 	&L3,
-		// 	&L2,
-		// 	&L1) >= 4) {
-		// 	//std::cout << "M11: " << std::endl;
-		// 	//std::cout << L4 << std::endl;
-		// 	//std::cout << L3 << std::endl;
-		// 	//std::cout << L2 << std::endl;
-		// 	//std::cout << L1 << std::endl;
-		// }
-
-
-		//std::cout << "Limits to be added" << std::endl;
-		//ITM_write("M11\n");
-	}
-
-	else if (strcmp(gcode, M1.getGcode()) == 0) {
-
+	/*M4: Set laser power*/
+	else if (strcmp(gcode, M4.getGcode()) == 0) {
 		if (sscanf(
 			str,
-			M1.getFormat(),
-			&penPos) >= 1) {
-			//std::cout << "M1: " << std::endl;
-			//std::cout << penPos << std::endl;
-			//ITM_write("M1\n");
+			M4.getFormat(),
+			&laserPower) == 1) {
+			ITM_write("M4: ");
+			ITM_print("Power level of laser: %u\n",laserPower);
 		}
 	}
 
-	else if (strcmp(gcode, M10.getGcode()) == 0) {
-		//std::cout << token << " XY ";
-			//std::cout height << " " << width << " 0.00 0.00 A" << dirX << " B" << dirY << " H0 ";
-			//std::cout speed << " U" << savePenUp << " D" << savePenDown << std::endl;
-		//ITM_write("M10\n");
-	}
-
+	/*M5: Save stepper directions, plot area, and plotting speed*/
 	else if (strcmp(gcode, M5.getGcode()) == 0) {
-
 		if (sscanf(
 			str,
 			M5.getFormat(),
@@ -163,59 +150,76 @@ void parseCode(const char *str) {
 			&dirY,
 			&height,
 			&width,
-			&speed) >= 5) {
-			//std::cout << "M5: " << std::endl;
-			//std::cout << dirX << std::endl;
-			//std::cout << dirY << std::endl;
-			//std::cout << height << std::endl;
-			//std::cout << width << std::endl;
-			//std::cout << speed << std::endl;
-			//ITM_write("M5\n");
+			&speed) == 5) {
+			ITM_write("M5: ");
+			ITM_print("X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",dirX,dirY,height,width,speed);
 		}
 	}
 
-	else if (strcmp(gcode, M4.getGcode()) == 0) {
-		int laserPower;
-		if (sscanf(
-			str,
-			M4.getFormat(),
-			&laserPower) >= 1) {
-			//std::cout << laserPower << std::endl;
-			//ITM_write("M4\n");
-		}
+
+	/*M10: Log of opening a COM port in mDraw*/
+	else if (strcmp(gcode, M10.getGcode()) == 0) {
+		ITM_write("M10\n");
 	}
 
-	else if (strcmp(gcode, G28.getGcode()) == 0) {
-		//std::cout << "Move to origo" << std::endl;
-		//ITM_write("G28\n");
+	/*M11: Limit switch status query*/
+	else if (strcmp(gcode, M11.getGcode()) == 0) {
+		//Limits to be added
+		ITM_write("M11\n");
 	}
 
+	/*G1: Move to coordinate*/
 	else if (strcmp(gcode ,G1.getGcode()) == 0) {
-
 		if (sscanf(
 			str,
 			G1.getFormat(),
 			&moveX,
 			&moveY,
-			&moveA) >= 3) {
-			//std::cout << moveX << std::endl;
-			//std::cout << moveY << std::endl;
-			//std::cout << moveA << std::endl;
-
+			&moveA) == 3) {
+			ITM_write("G1: ");
+			ITM_print("Moving to coordinates X %.2f and Y %.2f\n",moveX,moveY);
 		}
-		ITM_write("G1\n");
+
 	}
+
+	/*G1: Move to origin*/
+	else if (strcmp(gcode, G28.getGcode()) == 0) {
+		ITM_write("G28: Moving to origin\n");
+	}
+
+	/*Unknown Gcode*/
 	else
 	{
-		//std::cout << "Error! " << gcode << std::endl;
-		//ITM_write("Error!\n");
+		ITM_write("Error!\n");
+		ITM_print("%s is unknown Gcode",gcode);
 	}
 
-	ITM_write("Parser done\n");
-	//system("pause");
+	ITM_write("\n");
 }
 
 
+/*Functions*/
 
+void trimTrailing(char * str)
+{
+    int index, i;
 
+    /* Set default index */
+    index = -1;
+
+    /* Find last index of non-white space character */
+    i = 0;
+    while(str[i] != '\0')
+    {
+        if(str[i] != ' ' && str[i] != '\t' && str[i] != '\n')
+        {
+            index= i;
+        }
+
+        i++;
+    }
+
+    /* Mark next character to last non-white space character as NULL */
+    str[index + 1] = '\0';
+}
 
