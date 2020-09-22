@@ -11,6 +11,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+
 #include <string>
 
 class Syslog {
@@ -18,14 +19,10 @@ public:
 	Syslog();
 	virtual ~Syslog();
 	int read();
-	void write(int *description);
-	void writeString(char *description);
+	void write(int description);
+	int writeString(const char *description);
 private:
 	SemaphoreHandle_t syslogMutex;
 };
-
-
-
-
 
 #endif /* SYSLOG_H_ */

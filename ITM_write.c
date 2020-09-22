@@ -10,9 +10,6 @@
 #include <stdint.h>
 #include <chip.h>
 
-#include <stdio.h>
-#include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
-
 // ******************************************************************
 // Cortex-M SWO Trace / Debug registers used for accessing ITM
 // ******************************************************************
@@ -64,15 +61,5 @@ int ITM_write(const char *pcBuffer)
 	} else
 		// Function returns zero if nothing was written
 		return 0;
-}
-
-void ITM_print(const char *format, ...)
-{
-    char buffer [256];
-    va_list argptr;
-    va_start(argptr, format);
-    vsnprintf (buffer, 256, format, argptr);
-    va_end(argptr);
-    ITM_write(buffer);
 }
 

@@ -2,7 +2,10 @@
 #include <string.h>
 #include "Gcode.h"
 #include "parser.h"
+#include "../printer.h"
 #include "../ITM_write.h"
+
+
 
 //#define _CRT_SECURE_NO_WARNINGS
 //#pragma warning(disable:4996)
