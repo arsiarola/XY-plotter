@@ -1,15 +1,17 @@
 #ifndef PRINTER_H_
 #define PRINTER_H_
-#include "arg_printer.h"
 #include "ITM_write.h"
-#include "syslog.h"
+#include "LpcUart.h"
+#define ARG_BUFFER_SIZE 128
 
-namespace Printer {
-	int uart_print(const char *str);
-}
-extern Syslog mDraw_uart;
-#define mDraw_print(...) arg_print(Printer::uart_print, __VA_ARGS__)
+extern LpcUart mDraw_uart;
 
+// we cant just use mDraw_uart.write as a callback function since mDraw_uart hasnt been compiled yet
+// so lets make function that just uses mDraw_uart.write. We can use uart_print now as callback.
+int uart_print(const char *str);
+int arg_print(int (*callback) (const char *), const char *format, ...);
+
+#define mDraw_print(...) arg_print(uart_print, __VA_ARGS__)
 #define ITM_print(...) arg_print(ITM_write, __VA_ARGS__)
 
 
