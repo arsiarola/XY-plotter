@@ -157,10 +157,14 @@ void parseCode(const char *str) {
             data.chunk2 = width;
             data.chunk3 = speed;
             // TODO: define masks and shifts in plotter.h
-            int dirXshift = 8;
-            int dirYshift = 9;
-            data.chunk3 |= dirX << dirXshift;
-            data.chunk3 |= dirY << dirYshift;
+
+#define DIR_X_SHIFT 8
+#define DIR_Y_SHIFT 9
+#define DIR_X_MASK (1 << DIR_X_SHIFT)
+#define DIR_Y_MASK (1 << DIR_Y_SHIFT)
+
+            data.chunk3 |= dirX << DIR_X_SHIFT;
+            data.chunk3 |= dirY << DIR_Y_SHIFT;
         }
     }
 

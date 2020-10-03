@@ -4,7 +4,7 @@
 #include "LpcUart.h"
 #define ARG_BUFFER_SIZE 128
 
-extern LpcUart mDraw_uart;
+extern LpcUart *mDraw_uart;
 
 // we cant just use mDraw_uart.write as a callback function since mDraw_uart hasnt been compiled yet
 // so lets make function that just uses mDraw_uart.write. We can use uart_print now as callback.

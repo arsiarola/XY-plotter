@@ -13,6 +13,7 @@
 #include "ITM_write.h"
 #include "printer.h"
 #include "parser/Gcode.h"
+#include "usb/user_vcom.h"
 
 #define READ_FROM_FILE_TEST 0
 
@@ -25,10 +26,14 @@
 QueueHandle_t queue;
 
 
-#define I2C_BUFFER_SIZE 128
+#define BUFFER_SIZE 128
+#define STR_SIZE 80
+
 static void vTask1(void *pvParameters) {
+	vTaskDelay(100); /* wait until semaphores are created */
 	int n = 5;
-    char buffer[128] = "";
+    char buffer[BUFFER_SIZE] = "";
+    char str[STR_SIZE] = "";
     int received;
     int length = 0;
     ITM_print("starting while\n");
@@ -36,15 +41,22 @@ static void vTask1(void *pvParameters) {
     int x = 0;
     while (1) {
     	if (++x > 100) { ITM_print("In while\n"); x = 0; }
-        received = mDraw_uart.read(buffer, 128, portTICK_PERIOD_MS * 100);
-        if (received > 0) {
-            ITM_print("got something\n");
-            ITM_print("%s", buffer);
-            length += received;
+        //received = mDraw_uart->read(buffer, 128, portTICK_PERIOD_MS * 100);
+		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
 
-            if (strchr(buffer, '\n') == NULL && strchr(buffer, '\r') == NULL && length < 128-1) continue;
-            mDraw_print("OK\r\n");
+        if (received > 0) {
+			str[received] = 0; /* make sure we have a zero at the end */
+            length += received;
+            strncat(buffer, str, BUFFER_SIZE);
+            if (strchr(str, '\n') == NULL && strchr(str, '\r') == NULL && length < 128-1) continue;
+            if (length > BUFFER_SIZE-1) length = BUFFER_SIZE-1;
+            buffer[length] = '\0';
+            mDraw_print("%s\r", buffer);
+            ITM_write(buffer);
+            parseCode(buffer);
             length = 0;
+			buffer[0] = '\0';
+            USB_send((uint8_t *) "OK\r\n", 4);
         }
 
 
@@ -55,7 +67,7 @@ static void vTask1(void *pvParameters) {
         /*     buffer[0] = '\0'; */
         /*     mDraw_print("OK\r\n"); */
         /* } */
-        //vTaskDelay(10);
+        vTaskDelay(10);
     }
 }
 
@@ -90,6 +102,10 @@ int main() {
     }
 
 #else
+
+    xTaskCreate(cdc_task, "CDC",
+				configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),
+				(TaskHandle_t *) NULL);
 
     xTaskCreate(vTask1, "vTask1",
             configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
