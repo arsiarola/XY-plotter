@@ -31,16 +31,12 @@ QueueHandle_t queue;
 
 static void vTask1(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
-	int n = 5;
     char buffer[BUFFER_SIZE] = "";
     char str[STR_SIZE] = "";
-    int received;
     int length = 0;
     ITM_print("starting while\n");
     mDraw_print("testing Uart\n\r");
-    int x = 0;
     while (1) {
-    	if (++x > 100) { ITM_print("In while\n"); x = 0; }
         //received = mDraw_uart->read(buffer, 128, portTICK_PERIOD_MS * 100);
 		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
 

@@ -7,7 +7,7 @@ struct GcodeData{
     Gcode::Id id;
     uint32_t chunk1; // main chunk
     uint32_t chunk2;
-    uint32_t chunk3;
+    uint16_t chunk3;
 };
 
 void parseCode(const char *s);

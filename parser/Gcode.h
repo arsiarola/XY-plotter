@@ -5,7 +5,7 @@
 
 class Gcode {
 public:
-    enum Id { M1, M2, M4, M5, M10, M11, G1, G28 };
+    enum Id : uint8_t { M1, M2, M4, M5, M10, M11, G1, G28 };
     Gcode(Id id_, const char *gcode_, const char *format_);
     const char* getFormat() { return format; };
     const char* getGcode() { return gcode; };
