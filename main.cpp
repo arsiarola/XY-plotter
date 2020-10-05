@@ -35,7 +35,6 @@ static void vTask1(void *pvParameters) {
     char str[STR_SIZE] = "";
     int length = 0;
     ITM_print("starting while\n");
-    mDraw_print("testing Uart\n\r");
     while (1) {
         //received = mDraw_uart->read(buffer, 128, portTICK_PERIOD_MS * 100);
 		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
@@ -47,24 +46,27 @@ static void vTask1(void *pvParameters) {
             if (strchr(str, '\n') == NULL && strchr(str, '\r') == NULL && length < 128-1) continue;
             if (length > BUFFER_SIZE-1) length = BUFFER_SIZE-1;
             buffer[length] = '\0';
-            mDraw_print("%s\r", buffer);
             ITM_write(buffer);
-            parseCode(buffer);
+            parseCode(buffer, queue);
             length = 0;
 			buffer[0] = '\0';
             USB_send((uint8_t *) "OK\r\n", 4);
         }
-
-
-        /* if (c == '\n' || c == '\r') { */
-        /*     buffer[index] = '\0'; */
-        /*     ITM_write(buffer); */
-        /*     parseCode(buffer); */
-        /*     buffer[0] = '\0'; */
-        /*     mDraw_print("OK\r\n"); */
-        /* } */
-        vTaskDelay(10);
+        /* vTaskDelay(10); */
     }
+}
+
+static void vTask2(void *pvParameters) {
+	GcodeData data;
+	while (true) {
+		if (xQueueReceive(
+                queue,
+                &data,
+                portMAX_DELAY
+             	 ) == pdTRUE ) {
+			mDraw_print("got something\n\r");
+		}
+	}
 }
 
 extern "C" {
@@ -103,9 +105,12 @@ int main() {
 				configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),
 				(TaskHandle_t *) NULL);
 
-    xTaskCreate(vTask1, "vTask1",
+    xTaskCreate(vTask1, "parser",
             configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
             (TaskHandle_t *) NULL);
+    xTaskCreate(vTask2, "motor",
+                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
+                (TaskHandle_t *) NULL);
 
     vTaskStartScheduler();
 #endif /* READ_FROM_FILE_TEST */

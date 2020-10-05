@@ -1,16 +1,19 @@
 #ifndef PARSER_H
 #define PARSER_H
-#include "Gcode.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 
-// possibly move this struct to plotter.cpp
-struct GcodeData{
-    Gcode::Id id;
-    uint32_t chunk1; // main chunk
-    uint32_t chunk2;
-    uint16_t chunk3;
-};
-
-void parseCode(const char *s);
+void parseCode(const char *s, QueueHandle_t &queue);
 void trimTrailing(char * str);
+
+bool m1ExtractData(const char *str);
+bool m2ExtractData (const char *str);
+bool m4ExtractData (const char *str);
+bool m5ExtractData(const char *str);
+bool m10ExtractData (const char *str);
+bool m11ExtractData (const char *str);
+bool g1ExtractData (const char *str);
+bool g28ExtractData (const char *str);
+
 
 #endif /* PARSER_H */
