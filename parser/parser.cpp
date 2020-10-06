@@ -85,8 +85,9 @@ static Gcode *gcodes[GCODE_SIZE] = {
 };
 
 void parseCode(const char *str, QueueHandle_t &queue) {
-    int index = -1;
+    uint8_t index;
     char gcode[8];
+    bool found = false;
     strncpy(gcode, str, 8);
 
     trimTrailing(gcode);
@@ -96,28 +97,25 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         gcode[token-gcode] = '\0';
     }
 
-    bool found = false;
-    bool dataExtracted = false;
     for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
         if (strcmp(gcodes[i]->getGcode(), gcode) == 0) {
+            gcodes[i]->callback(str);
             found = true;
-            dataExtracted = gcodes[i]->callback(str);
+            index = i;
             break;
         }
     }
 
+    if (found) {
+        data.id = gcodes[index]->getId();
+        xQueueSendToBack(queue, &data, 0);
+    }
+
     /*Unknown Gcode*/
-    if (!found)
+    else
     {
         ITM_write("Error!\n");
         ITM_print("%s is unknown Gcode",gcode);
-    }
-
-    if (found && dataExtracted) {
-        data.id = gcodes[index]->getId();
-        //TODO: think about how to make queue public variable
-        // make own header for public variables?
-        xQueueSendToBack(queue, &data, 0);
     }
 
     ITM_write("\n");
@@ -127,45 +125,36 @@ void parseCode(const char *str, QueueHandle_t &queue) {
 /*Functions*/
 
 /* Set penpos */
-bool m1ExtractData(const char *str) {
+void m1ExtractData(const char *str) {
     if (sscanf( str,
                 M1.getFormat(),
                 &data.Data.M1.penPos) == 1) {
-        ITM_write("M1: ");
-        ITM_print("pen position: %u\n", data.Data.M1.penPos);
-        return true;
+        ITM_print("M1: pen position: %u\n", data.Data.M1.penPos);
     }
-    return false;
 }
 
 /* Save pen up and down */
- bool m2ExtractData (const char *str) {
+ void m2ExtractData (const char *str) {
     if (sscanf( str,
                 M2.getFormat(),
                 &data.Data.M2.savePenUp,
                 &data.Data.M2.savePenDown) == 2) {
-        ITM_write("M2: ");
-        ITM_print("up: %u  down: %u\n",data.Data.M2.savePenUp, data.Data.M2.savePenDown);
-        return true;
+        ITM_print("M2: up: %u  down: %u\n",data.Data.M2.savePenUp, data.Data.M2.savePenDown);
     }
-    return false;
 }
 
 /*M4: Set laser power*/
-bool m4ExtractData (const char *str) {
+void m4ExtractData (const char *str) {
     if (sscanf(
                 str,
                 M4.getFormat(),
                 &data.Data.M4.laserPower) == 1) {
-        ITM_write("M4: ");
-        ITM_print("Power level of laser: %u\n", data.Data.M4.laserPower);
-        return true;
+        ITM_print("M4: Power level of laser: %u\n", data.Data.M4.laserPower);
     }
-    return false;
 }
 
     /*M5: Save stepper directions, plot area, and plotting speed*/
-bool m5ExtractData(const char *str) {
+void m5ExtractData(const char *str) {
     if (sscanf(
                 str,
                 M5.getFormat(),
@@ -175,39 +164,34 @@ bool m5ExtractData(const char *str) {
                 &data.Data.M5.width,
                 &data.Data.M5.speed
             ) == 5) {
-        ITM_write("M5: ");
-        ITM_print("X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
+        ITM_print("M5: X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
                   data.Data.M5.dirX,
                   data.Data.M5.dirY,
                   data.Data.M5.height,
                   data.Data.M5.width,
                   data.Data.M5.speed);
-        return true;
     }
-    return false;
 }
 
 /* Reply to mdraw with all values? */
-bool m10ExtractData (const char *str) {
+void m10ExtractData (const char *str) {
     ITM_write("M10\n");
-    return false;
 }
 
 /*M11: Limit switch status query*/
-bool m11ExtractData (const char *str) {
+void m11ExtractData (const char *str) {
     ITM_write("M11\n");
     //TODO: get limit switch statuses from plotter and print them to mdraw
-    return false;
 }
 
 /*G1: Move to coordinate*/
-bool g1ExtractData (const char *str) {
+void g1ExtractData (const char *str) {
     if (sscanf(
                 str,
                 G1.getFormat(),
                 &data.Data.G1.moveX,
                 &data.Data.G1.moveY,
-                &data.Data.G1.absoluteOrRelative
+                &data.Data.G1.absolute
                 ) == 3)
     {
         ITM_write("G1: ");
@@ -215,15 +199,15 @@ bool g1ExtractData (const char *str) {
                   data.Data.G1.moveX,
                   data.Data.G1.moveY
                  );
-        return true;
     }
-    return false;
 }
 
 /*G28: Move to origin*/
-bool g28ExtractData (const char *str) {
+void g28ExtractData (const char *str) {
     ITM_write("G28: Moving to origin\n");
-    return false;
+    data.Data.G1.moveX = 0;
+    data.Data.G1.moveY = 0;
+    data.Data.G1.absolute = false;
 }
 
 void trimTrailing(char * str)

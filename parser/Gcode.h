@@ -6,7 +6,7 @@
 class Gcode {
 public:
     enum Id : uint8_t { M1, M2, M4, M5, M10, M11, G1, G28 };
-    Gcode(Id id_, const char *gcode_, const char *format_, bool (*functionPtr_)(const char *str) = nullptr)  :
+    Gcode(Id id_, const char *gcode_, const char *format_, void (*functionPtr_)(const char *str) = nullptr)  :
         gcode(gcode_),
         format(format_),
         id(id_),
@@ -15,14 +15,14 @@ public:
     const char* getFormat() { return format; };
     const char* getGcode() { return gcode; };
     Id getId() { return id; };
-    bool callback(const char *str);
+    void callback(const char *str);
     virtual ~Gcode() { };
 
 private:
     const Id id;
     const char *gcode;
     const char *format;
-    bool (*functionPtr)(const char *str);
+    void (*functionPtr)(const char *str);
 };
 
 struct GcodeData {
@@ -38,10 +38,10 @@ struct GcodeData {
 			uint32_t width ;
 			uint8_t speed ;
 		}M5;
-		struct G1  {
+		struct G1  { // G1 and G28 have same data
 			float moveX ;
 			float moveY ;
-			bool absoluteOrRelative ;
+			bool absolute;
 		}G1;
 	} Data;
 };

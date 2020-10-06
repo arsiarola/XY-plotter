@@ -1,5 +1,4 @@
 #include "Gcode.h"
-bool Gcode::callback (const char *str) {
-    if (functionPtr != nullptr) return functionPtr(str);
-    return false;
+void Gcode::callback (const char *str) {
+    if (functionPtr != nullptr) functionPtr(str);
 }

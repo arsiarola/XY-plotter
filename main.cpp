@@ -50,9 +50,7 @@ static void vTask1(void *pvParameters) {
             parseCode(buffer, queue);
             length = 0;
 			buffer[0] = '\0';
-            USB_send((uint8_t *) "OK\r\n", 4);
         }
-        /* vTaskDelay(10); */
     }
 }
 
@@ -64,7 +62,8 @@ static void vTask2(void *pvParameters) {
                 &data,
                 portMAX_DELAY
              	 ) == pdTRUE ) {
-			mDraw_print("got something\n\r");
+			mDraw_print("Got ID number: %u\n\r", data.id);
+            USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
 }
