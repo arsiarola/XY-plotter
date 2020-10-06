@@ -85,7 +85,6 @@ static Gcode *gcodes[GCODE_SIZE] = {
 };
 
 void parseCode(const char *str, QueueHandle_t &queue) {
-    uint8_t index;
     char gcode[8];
     bool found = false;
     strncpy(gcode, str, 8);
@@ -101,23 +100,17 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         if (strcmp(gcodes[i]->getGcode(), gcode) == 0) {
             gcodes[i]->callback(str);
             found = true;
-            index = i;
+            data.id = gcodes[i]->getId();
+            xQueueSendToBack(queue, &data, 0);
             break;
         }
     }
 
-    if (found) {
-        data.id = gcodes[index]->getId();
-        xQueueSendToBack(queue, &data, 0);
-    }
-
     /*Unknown Gcode*/
-    else
-    {
+    if (!found) {
         ITM_write("Error!\n");
         ITM_print("%s is unknown Gcode",gcode);
     }
-
     ITM_write("\n");
 }
 

@@ -88,7 +88,8 @@ int main() {
     const char *fname = "parser/gcode01.txt";
     fp = fopen(fname, "r");
     if (fp == NULL) ITM_print("Error: cannot open %s for reading\n", fname);
-    else {char line[LINE_SIZE];
+    else {
+    	char line[LINE_SIZE];
         while(!feof(fp)) {
             if (fgets(line, LINE_SIZE, fp) != NULL) {
                 ITM_print(line);
