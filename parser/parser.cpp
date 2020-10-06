@@ -130,9 +130,9 @@ void parseCode(const char *str, QueueHandle_t &queue) {
 bool m1ExtractData(const char *str) {
     if (sscanf( str,
                 M1.getFormat(),
-                &data.M1.penPos) == 1) {
+                &data.Data.M1.penPos) == 1) {
         ITM_write("M1: ");
-        ITM_print("pen position: %u\n", data.M1.penPos);
+        ITM_print("pen position: %u\n", data.Data.M1.penPos);
         return true;
     }
     return false;
@@ -142,10 +142,10 @@ bool m1ExtractData(const char *str) {
  bool m2ExtractData (const char *str) {
     if (sscanf( str,
                 M2.getFormat(),
-                &data.M2.savePenUp,
-                &data.M2.savePenDown) == 2) {
+                &data.Data.M2.savePenUp,
+                &data.Data.M2.savePenDown) == 2) {
         ITM_write("M2: ");
-        ITM_print("up: %u  down: %u\n",data.M2.savePenUp, data.M2.savePenDown);
+        ITM_print("up: %u  down: %u\n",data.Data.M2.savePenUp, data.Data.M2.savePenDown);
         return true;
     }
     return false;
@@ -156,9 +156,9 @@ bool m4ExtractData (const char *str) {
     if (sscanf(
                 str,
                 M4.getFormat(),
-                &data.M4.laserPower) == 1) {
+                &data.Data.M4.laserPower) == 1) {
         ITM_write("M4: ");
-        ITM_print("Power level of laser: %u\n", data.M4.laserPower);
+        ITM_print("Power level of laser: %u\n", data.Data.M4.laserPower);
         return true;
     }
     return false;
@@ -169,19 +169,19 @@ bool m5ExtractData(const char *str) {
     if (sscanf(
                 str,
                 M5.getFormat(),
-                &data.M5.dirX,
-                &data.M5.dirY,
-                &data.M5.height,
-                &data.M5.width,
-                &data.M5.speed
+                &data.Data.M5.dirX,
+                &data.Data.M5.dirY,
+                &data.Data.M5.height,
+                &data.Data.M5.width,
+                &data.Data.M5.speed
             ) == 5) {
         ITM_write("M5: ");
         ITM_print("X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
-                  data.M5.dirX,
-                  data.M5.dirY,
-                  data.M5.height,
-                  data.M5.width,
-                  data.M5.speed);
+                  data.Data.M5.dirX,
+                  data.Data.M5.dirY,
+                  data.Data.M5.height,
+                  data.Data.M5.width,
+                  data.Data.M5.speed);
         return true;
     }
     return false;
@@ -205,15 +205,15 @@ bool g1ExtractData (const char *str) {
     if (sscanf(
                 str,
                 G1.getFormat(),
-                &data.G1.moveX,
-                &data.G1.moveY,
-                &data.G1.absoluteOrRelative
+                &data.Data.G1.moveX,
+                &data.Data.G1.moveY,
+                &data.Data.G1.absoluteOrRelative
                 ) == 3)
     {
         ITM_write("G1: ");
         ITM_print("Moving to coordinates X %.2f and Y %.2f\n",
-                  data.G1.moveX,
-                  data.G1.moveY
+                  data.Data.G1.moveX,
+                  data.Data.G1.moveY
                  );
         return true;
     }
