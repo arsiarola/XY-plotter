@@ -2,47 +2,63 @@
 #define GCODE_H_
 
 #include <string>
+#define getGcodeId(letter, number) ((letter << 8) | (number))
 
 class Gcode {
 public:
-    enum Id : uint8_t { M1, M2, M4, M5, M10, M11, G1, G28 };
-    Gcode(Id id_, const char *gcode_, const char *format_, void (*functionPtr_)(const char *str) = nullptr)  :
-        gcode(gcode_),
-        format(format_),
-        id(id_),
-        functionPtr(functionPtr_)
-    { }
-    const char* getFormat() { return format; };
-    const char* getGcode() { return gcode; };
-    Id getId() { return id; };
-    void callback(const char *str);
-    virtual ~Gcode() { };
+    enum Letter : char { M = 'M', G = 'G' };
+    enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
+    enum Id : uint16_t {
+        G1 = getGcodeId(Letter::G, Number::_1),
+        G28 = getGcodeId(Letter::G, Number::_28),
+        M1 = getGcodeId(Letter::M, Number::_1),
+        M2 = getGcodeId(Letter::M, Number::_2),
+        M4 = getGcodeId(Letter::M, Number::_4),
+        M5 = getGcodeId(Letter::M, Number::_5),
+        M10 = getGcodeId(Letter::M, Number::_10),
+        M11 = getGcodeId(Letter::M, Number::_11)
+    };
 
-private:
-    const Id id;
-    const char *gcode;
-    const char *format;
-    void (*functionPtr)(const char *str);
-};
-
-struct GcodeData {
+struct Data {
 	Gcode::Id id;
-	union Data {
-		struct M1  { uint8_t penPos; }M1;
-		struct M2  { uint8_t savePenUp; uint8_t savePenDown; }M2;
-		struct M4  { uint8_t laserPower; }M4;
-		struct M5  {
+	union data {
+		struct m1  { uint8_t penPos; }m1;
+		struct m2  { uint8_t savePenUp; uint8_t savePenDown; }m2;
+		struct m4  { uint8_t laserPower; }m4;
+		struct m5  {
 			bool dirX ;
 			bool dirY ;
 			uint32_t height ;
 			uint32_t width ;
 			uint8_t speed ;
-		}M5;
-		struct G1  { // G1 and G28 have same data
+		}m5;
+		struct g1  { // g1 and g28 have same data
 			float moveX ;
 			float moveY ;
-			bool absolute;
-		}G1;
-	} Data;
+			bool relative;
+		}g1;
+	} data;
 };
+
+    Gcode(Letter letter_, Number number_, bool (*functionPtr_)(const char *str) = nullptr)  :
+        letter(letter_),
+        number(number_),
+        id((Id)getGcodeId(letter, number)),
+        functionPtr(functionPtr_)
+    { }
+    const char* toFormat(Id id_);
+    const char* toFormat() { return toFormat(id); }
+    const char* toString(Letter let, Number num);
+    const char* toString() { return toString(letter, number); }
+    Id getId() { return id; };
+    bool callback(const char *str);
+    virtual ~Gcode() { };
+
+private:
+    Letter letter;
+    Number number;
+    Id id;
+    bool (*functionPtr)(const char *str);
+};
+
 #endif /* GCODE_H_ */

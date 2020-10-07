@@ -55,7 +55,7 @@ static void vTask1(void *pvParameters) {
 }
 
 static void vTask2(void *pvParameters) {
-	GcodeData data;
+    Gcode::Data data;
 	while (true) {
 		if (xQueueReceive(
                 queue,
@@ -77,7 +77,7 @@ extern "C" {
 }
 
 int main() {
-	queue = xQueueCreate(5, sizeof(GcodeData));
+	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
     ITM_print("test\n");

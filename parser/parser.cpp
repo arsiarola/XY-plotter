@@ -8,199 +8,174 @@
 #include <stdio.h>
 #include <string.h>
 
+static Gcode::Data data;
 
-
-static GcodeData data;
-
-// set penpos
-static Gcode M1 = Gcode(Gcode::M1, "M1",
-        "M1 "
-        "%u",
-        m1ExtractData
-        );
-
-//Save pen up/down
-static Gcode M2 = Gcode(Gcode::M2, "M2",
-        "M2 "
-        "U" "%u "
-        "D" "%u",
-        m2ExtractData
-        );
-
-// set laser power
-static Gcode M4 = Gcode(Gcode::M4, "M4",
-        "M4 "
-        "%u",
-        m4ExtractData
-        );
-
-// save stepper directions, area and speed
-static Gcode M5 = Gcode(Gcode::M5, "M5",
-        "M5 "
-        "A" "%d " //A0
-        "B" "%d " //B0
-        "H" "%u " //H310
-        "W" "%u " //W380
-        "S" "%u", //S80
-m5ExtractData
-        );
-
-// reply to mdraw with all values
-static Gcode M10 = Gcode(Gcode::M10, "M10",
-        "M10",
-        m10ExtractData
-        );
-
-// get the limit switches from plotter
-static Gcode M11 = Gcode(Gcode::M11, "M11",
-        "M11",
-        m11ExtractData
-        );
-
-// go to position
-static Gcode G1 = Gcode(Gcode::G1, "G1",
-        "G1 "
-        "X" "%f " //X85.14
-        "Y" "%f " //Y117.29
-        "A" "%d", //A0
-        g1ExtractData
-        );
-
-// Go to origin
-static Gcode G28 = Gcode(Gcode::G28, "G28",
-        "G28 ",
-        g28ExtractData
-        );
+static Gcode G1 = Gcode(Gcode::Letter::G , Gcode::Number::_1 , g1ExtractData); // go to position
+static Gcode G28 = Gcode(Gcode::Letter::G, Gcode::Number::_28, g28ExtractData); // Go to origin
+static Gcode M1 = Gcode(Gcode::Letter::M , Gcode::Number::_1 , m1ExtractData); // set penpos
+static Gcode M2 = Gcode(Gcode::Letter::M , Gcode::Number::_2 , m2ExtractData); //Save pen up/do wn
+static Gcode M4 = Gcode(Gcode::Letter::M , Gcode::Number::_4 , m4ExtractData); // set laser po wer
+static Gcode M5 = Gcode(Gcode::Letter::M , Gcode::Number::_5 , m5ExtractData); // save stepper directions, area and speed
+static Gcode M10 = Gcode(Gcode::Letter::M, Gcode::Number::_10, m10ExtractData); // reply to mdra w with all values
+static Gcode M11 = Gcode(Gcode::Letter::M, Gcode::Number::_11, m11ExtractData); // get the limit switches from plotter
 
 #define GCODE_SIZE 8
 static Gcode *gcodes[GCODE_SIZE] = {
     &G1,
+    &G28,
     &M1,
     &M2,
     &M4,
     &M5,
     &M10,
     &M11,
-    &G28
 };
 
 void parseCode(const char *str, QueueHandle_t &queue) {
     char gcode[8];
     bool found = false;
+    char letter;
+    uint8_t number;
     strncpy(gcode, str, 8);
-
     trimTrailing(gcode);
 
     char *token = strchr(gcode, ' ');
     if (token != NULL) {
         gcode[token-gcode] = '\0';
     }
+    if (sscanf(gcode, "%c%hhu", &letter, &number) != 2) {
+        ITM_print("Letter and/or number not found\n");
+        return;
+    }
+    ITM_print("gcode = %s, letter = %c, number = %u\n", gcode, letter, number);
 
+    Gcode::Id id = (Gcode::Id) getGcodeId(letter, number);
     for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
-        if (strcmp(gcodes[i]->getGcode(), gcode) == 0) {
-            gcodes[i]->callback(str);
+        if (gcodes[i]->getId() == id) {
             found = true;
-            data.id = gcodes[i]->getId();
-            xQueueSendToBack(queue, &data, 0);
+            if (gcodes[i]->callback(str)) { // returns true if data was extracted correctly (returns true for gcodes that dont need data extracted)
+                data.id = gcodes[i]->getId();
+                xQueueSendToBack(queue, &data, 0);
+            }
+            else {
+                ITM_print("couldn't extract the data\n");
+            }
             break;
         }
     }
 
-    /*Unknown Gcode*/
     if (!found) {
-        ITM_write("Error!\n");
-        ITM_print("%s is unknown Gcode",gcode);
+        ITM_write("Error: ");
+        ITM_print("%s is unknown Gcode\n", gcode);
     }
     ITM_write("\n");
 }
 
 
-/*Functions*/
+/*FUNCTIONS*/
 
 /* Set penpos */
-void m1ExtractData(const char *str) {
+bool m1ExtractData(const char *str) {
+    ITM_print("M1: ");
     if (sscanf( str,
-                M1.getFormat(),
-                &data.Data.M1.penPos) == 1) {
-        ITM_print("M1: pen position: %u\n", data.Data.M1.penPos);
+                M1.toFormat(),
+                &data.data.m1.penPos) == 1) {
+        ITM_print("pen position: %u\n", data.data.m1.penPos);
+        return true;
     }
+    return false;
 }
 
 /* Save pen up and down */
- void m2ExtractData (const char *str) {
+bool m2ExtractData (const char *str) {
+    ITM_print("M2: ");
     if (sscanf( str,
-                M2.getFormat(),
-                &data.Data.M2.savePenUp,
-                &data.Data.M2.savePenDown) == 2) {
-        ITM_print("M2: up: %u  down: %u\n",data.Data.M2.savePenUp, data.Data.M2.savePenDown);
+                M2.toFormat(),
+                &data.data.m2.savePenUp,
+                &data.data.m2.savePenDown) == 2) {
+        ITM_print("up: %u  down: %u\n",data.data.m2.savePenUp, data.data.m2.savePenDown);
+        return true;
     }
+    return false;
 }
 
 /*M4: Set laser power*/
-void m4ExtractData (const char *str) {
+bool m4ExtractData (const char *str) {
+    ITM_print("M4: ");
     if (sscanf(
                 str,
-                M4.getFormat(),
-                &data.Data.M4.laserPower) == 1) {
-        ITM_print("M4: Power level of laser: %u\n", data.Data.M4.laserPower);
+                M4.toFormat(),
+                &data.data.m4.laserPower) == 1) {
+        ITM_print("Power level of laser: %u\n", data.data.m4.laserPower);
+        return true;
     }
+    return false;
 }
 
-    /*M5: Save stepper directions, plot area, and plotting speed*/
-void m5ExtractData(const char *str) {
+/*M5: Save stepper directions, plot area, and plotting speed*/
+bool m5ExtractData(const char *str) {
+    ITM_print("M5: ");
     if (sscanf(
                 str,
-                M5.getFormat(),
-                &data.Data.M5.dirX,
-                &data.Data.M5.dirY,
-                &data.Data.M5.height,
-                &data.Data.M5.width,
-                &data.Data.M5.speed
+                M5.toFormat(),
+                &data.data.m5.dirX,
+                &data.data.m5.dirY,
+                &data.data.m5.height,
+                &data.data.m5.width,
+                &data.data.m5.speed
             ) == 5) {
-        ITM_print("M5: X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
-                  data.Data.M5.dirX,
-                  data.Data.M5.dirY,
-                  data.Data.M5.height,
-                  data.Data.M5.width,
-                  data.Data.M5.speed);
+        ITM_print("X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
+                  data.data.m5.dirX,
+                  data.data.m5.dirY,
+                  data.data.m5.height,
+                  data.data.m5.width,
+                  data.data.m5.speed);
+        return true;
     }
+    return false;
 }
 
 /* Reply to mdraw with all values? */
-void m10ExtractData (const char *str) {
+bool m10ExtractData (const char *str) {
     ITM_write("M10\n");
+    return true;
 }
 
 /*M11: Limit switch status query*/
-void m11ExtractData (const char *str) {
+bool m11ExtractData (const char *str) {
     ITM_write("M11\n");
     //TODO: get limit switch statuses from plotter and print them to mdraw
+    return true;
 }
 
-/*G1: Move to coordinate*/
-void g1ExtractData (const char *str) {
+/*g1: Move to coordinate*/
+bool g1ExtractData (const char *str) {
     if (sscanf(
                 str,
-                G1.getFormat(),
-                &data.Data.G1.moveX,
-                &data.Data.G1.moveY,
-                &data.Data.G1.absolute
-                ) == 3)
+                G1.toFormat(),
+                &data.data.g1.moveX,
+                &data.data.g1.moveY,
+                &data.data.g1.relative
+            ) == 3)
     {
         ITM_write("G1: ");
-        ITM_print("Moving to coordinates X %.2f and Y %.2f\n",
-                  data.Data.G1.moveX,
-                  data.Data.G1.moveY
+        ITM_print("Moving to %s coordinates X %.2f and Y %.2f\n",
+                data.data.g1.relative ? "relative" : "absolute",
+                  data.data.g1.moveX,
+                  data.data.g1.moveY
                  );
+        return true;
     }
+    return false;
 }
 
 /*G28: Move to origin*/
-void g28ExtractData (const char *str) {
+bool g28ExtractData (const char *str) {
     ITM_write("G28: Moving to origin\n");
-    data.Data.G1.moveX = 0;
-    data.Data.G1.moveY = 0;
-    data.Data.G1.absolute = false;
+    data.data.g1.moveX = 0;
+    data.data.g1.moveY = 0;
+    data.data.g1.relative = false;
+    return true;
 }
 
 void trimTrailing(char * str)
