@@ -62,7 +62,38 @@ static void vTask2(void *pvParameters) {
                 &data,
                 portMAX_DELAY
              	 ) == pdTRUE ) {
-			mDraw_print("Got ID number: %u\n\r", data.id);
+			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id));
+            switch (data.id) {
+                case Gcode::Id::G1:
+                case Gcode::Id::G28:
+                    mDraw_print("%f, %f, %d",
+                            data.data.g1.moveX,
+                            data.data.g1.moveY,
+                            data.data.g1.relative
+                            );
+                    break;
+                case Gcode::Id::M1:
+                    mDraw_print("%u", data.data.m1.penPos);
+                    break;
+                case Gcode::Id::M2:
+                    mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
+                    break;
+                case Gcode::Id::M4:
+                    mDraw_print("%u", data.data.m4.laserPower);
+                    break;
+                case Gcode::Id::M5:
+                    mDraw_print("%d, %d, %u, %u, %u",
+                            data.data.m5.dirX,
+                            data.data.m5.dirY,
+                            data.data.m5.height,
+                            data.data.m5.width,
+                            data.data.m5.speed
+                            );
+                    break;
+                case Gcode::Id::M10:
+                    break;
+            }
+            mDraw_print("\r\n");
             USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
@@ -80,7 +111,7 @@ int main() {
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
-    ITM_print("test\n");
+    ITM_print("sizeof gCode = %u\n", sizeof(Gcode));
 
 #if READ_FROM_FILE_TEST == 1
     // TODO: what is the current working directory in mcu?

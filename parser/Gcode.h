@@ -2,7 +2,11 @@
 #define GCODE_H_
 
 #include <string>
+
 #define getGcodeId(letter, number) ((letter << 8) | (number))
+// have mask just in case we would store to a bigger variable than 8 bits
+#define getLetterFromID(id) ((id >> 8) & (0xFF))
+#define getNumberFromID(id) ((id)      & (0xFF))
 
 class Gcode {
 public:
@@ -19,26 +23,27 @@ public:
         M11 = getGcodeId(Letter::M, Number::_11)
     };
 
-struct Data {
-	Gcode::Id id;
-	union data {
-		struct m1  { uint8_t penPos; }m1;
-		struct m2  { uint8_t savePenUp; uint8_t savePenDown; }m2;
-		struct m4  { uint8_t laserPower; }m4;
-		struct m5  {
-			bool dirX ;
-			bool dirY ;
-			uint32_t height ;
-			uint32_t width ;
-			uint8_t speed ;
-		}m5;
-		struct g1  { // g1 and g28 have same data
-			float moveX ;
-			float moveY ;
-			bool relative;
-		}g1;
-	} data;
-};
+    typedef struct Data {
+        Id id;
+        union data {
+            struct m1  { uint8_t penPos; } m1;
+            struct m2  { uint8_t savePenUp; uint8_t savePenDown; } m2;
+            struct m4  { uint8_t laserPower; } m4;
+            struct m5  {
+                bool dirX ;
+                bool dirY ;
+                uint32_t height ;
+                uint32_t width ;
+                uint8_t speed ;
+            } m5;
+            struct g1  { // g1 and g28 have same data
+                float moveX ;
+                float moveY ;
+                bool relative;
+            } g1;
+        } data;
+    } Data;
+
 
     Gcode(Letter letter_, Number number_, bool (*functionPtr_)(const char *str) = nullptr)  :
         letter(letter_),
@@ -46,10 +51,11 @@ struct Data {
         id((Id)getGcodeId(letter, number)),
         functionPtr(functionPtr_)
     { }
-    const char* toFormat(Id id_);
+    static const char* toFormat(Id id_);
     const char* toFormat() { return toFormat(id); }
-    const char* toString(Letter let, Number num);
+    static const char* toString(Letter let, Number num);
     const char* toString() { return toString(letter, number); }
+    static const char* toString(Id id_);
     Id getId() { return id; };
     bool callback(const char *str);
     virtual ~Gcode() { };

@@ -55,3 +55,7 @@ const char* Gcode::toString(Letter let, Number num) {
     std::snprintf((char*)str.data(), 4, "%c%u", let, num);
     return str.c_str();
 }
+
+const char* Gcode::toString(Id id_) {
+    return toString((Letter)getLetterFromID(id_), (Number)getNumberFromID(id_));
+}

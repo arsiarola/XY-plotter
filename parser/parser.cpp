@@ -10,12 +10,12 @@
 
 static Gcode::Data data;
 
-static Gcode G1 = Gcode(Gcode::Letter::G , Gcode::Number::_1 , g1ExtractData); // go to position
+static Gcode G1  = Gcode(Gcode::Letter::G, Gcode::Number::_1 , g1ExtractData); // go to position
 static Gcode G28 = Gcode(Gcode::Letter::G, Gcode::Number::_28, g28ExtractData); // Go to origin
-static Gcode M1 = Gcode(Gcode::Letter::M , Gcode::Number::_1 , m1ExtractData); // set penpos
-static Gcode M2 = Gcode(Gcode::Letter::M , Gcode::Number::_2 , m2ExtractData); //Save pen up/do wn
-static Gcode M4 = Gcode(Gcode::Letter::M , Gcode::Number::_4 , m4ExtractData); // set laser po wer
-static Gcode M5 = Gcode(Gcode::Letter::M , Gcode::Number::_5 , m5ExtractData); // save stepper directions, area and speed
+static Gcode M1  = Gcode(Gcode::Letter::M, Gcode::Number::_1 , m1ExtractData); // set penpos
+static Gcode M2  = Gcode(Gcode::Letter::M, Gcode::Number::_2 , m2ExtractData); //Save pen up/do wn
+static Gcode M4  = Gcode(Gcode::Letter::M, Gcode::Number::_4 , m4ExtractData); // set laser po wer
+static Gcode M5  = Gcode(Gcode::Letter::M, Gcode::Number::_5 , m5ExtractData); // save stepper directions, area and speed
 static Gcode M10 = Gcode(Gcode::Letter::M, Gcode::Number::_10, m10ExtractData); // reply to mdra w with all values
 static Gcode M11 = Gcode(Gcode::Letter::M, Gcode::Number::_11, m11ExtractData); // get the limit switches from plotter
 
@@ -47,7 +47,6 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         ITM_print("Letter and/or number not found\n");
         return;
     }
-    ITM_print("gcode = %s, letter = %c, number = %u\n", gcode, letter, number);
 
     Gcode::Id id = (Gcode::Id) getGcodeId(letter, number);
     for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
