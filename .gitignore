@@ -1,3 +1,5 @@
+/FreeRTOS_TAD_logs/
+.settings/
 *Debug
 *.swp #vim backup
 *.swo #vim backup
