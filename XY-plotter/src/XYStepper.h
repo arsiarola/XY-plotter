@@ -18,7 +18,7 @@ public:
     XYStepper(DigitalIoPin *dirX, DigitalIoPin *stepX, DigitalIoPin *dirY, DigitalIoPin *stepY,
               DigitalIoPin *lmXMin, DigitalIoPin *lmXMax, DigitalIoPin *lmYMin, DigitalIoPin *lmYMax);
     
-    virtual XYStepper();
+    virtual ~XYStepper();
 
     void RIT_start(int count, int pps); // pps = pulse per revolution
 
