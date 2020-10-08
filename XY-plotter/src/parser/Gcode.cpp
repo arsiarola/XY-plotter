@@ -2,7 +2,8 @@
 #include <stdio.h>
 
 bool Gcode::callback (const char *str) {
-    return (functionPtr != nullptr ? functionPtr(str) : false);
+    if (functionPtr != nullptr) return functionPtr(str);
+    else                        return false;
 }
 
 const char* Gcode::toFormat(Id id_) {
@@ -48,13 +49,12 @@ const char* Gcode::toFormat(Id id_) {
     }
 }
 
-const char* Gcode::toString(Letter let, Number num) {
-    std::string str;
-    str.reserve(4);
-    std::snprintf((char*)str.data(), 4, "%c%u", let, num);
-    return str.c_str();
+Gcode::array Gcode::toString(Letter letter, Number number) {
+    std::array<char, 4> str;
+    std::snprintf(str.data(), 4, "%c%u", letter, number);
+    return str;
 }
 
-const char* Gcode::toString(Id id_) {
-    return toString((Letter)GET_LETTER_FROM_ID(id_), (Number)GET_NUMBER_FROM_ID(id_));
+Gcode::array Gcode::toString(Id id) {
+    return toString((Letter)GET_LETTER_FROM_ID(id), (Number)GET_NUMBER_FROM_ID(id));
 }

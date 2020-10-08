@@ -36,7 +36,6 @@ static void vTask1(void *pvParameters) {
     int length = 0;
     ITM_print("starting while\n");
     while (1) {
-        //received = mDraw_uart->read(buffer, 128, portTICK_PERIOD_MS * 100);
 		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
 
         if (received > 0) {
@@ -62,7 +61,8 @@ static void vTask2(void *pvParameters) {
                 &data,
                 portMAX_DELAY
              	 ) == pdTRUE ) {
-			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id));
+		    ITM_print("sizeof gCode::Data.data = %u\n", sizeof(data.data));
+			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
             switch (data.id) {
                 case Gcode::Id::G1:
                 case Gcode::Id::G28:
@@ -111,7 +111,7 @@ int main() {
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
-    ITM_print("sizeof gCode = %u\n", sizeof(Gcode));
+    ITM_print("sizeof gCodeData = %u\n", sizeof(Gcode::Data));
 
 #if READ_FROM_FILE_TEST == 1
     // TODO: what is the current working directory in mcu?

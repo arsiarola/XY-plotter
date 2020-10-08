@@ -2,23 +2,25 @@
 #define GCODE_H_
 
 #include <string>
+#include <array>
 
-#define CREATE_GCODE_ID(letter, number) ((letter << 8) | (number))
-// have mask just in case we would store to a bigger variable than 8 bits
-#define GET_LETTER_FROM_ID(id) ((id >> 8) & (0xFF))
-#define GET_NUMBER_FROM_ID(id) ((id)      & (0xFF))
+// have mask just in case we use bigger value in parameter and for storing
+#define CREATE_GCODE_ID(letter, number) (((letter << 8) | (number)) & 0xFFFF)
+#define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
+#define GET_NUMBER_FROM_ID(id) ((id)      & 0xFF)
 
 class Gcode {
 public:
+    using array = std::array<char, 4>;
     enum Letter : char { M = 'M', G = 'G' };
     enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
     enum Id : uint16_t {
-        G1 = CREATE_GCODE_ID(Letter::G, Number::_1),
+        G1  = CREATE_GCODE_ID(Letter::G, Number::_1),
         G28 = CREATE_GCODE_ID(Letter::G, Number::_28),
-        M1 = CREATE_GCODE_ID(Letter::M, Number::_1),
-        M2 = CREATE_GCODE_ID(Letter::M, Number::_2),
-        M4 = CREATE_GCODE_ID(Letter::M, Number::_4),
-        M5 = CREATE_GCODE_ID(Letter::M, Number::_5),
+        M1  = CREATE_GCODE_ID(Letter::M, Number::_1),
+        M2  = CREATE_GCODE_ID(Letter::M, Number::_2),
+        M4  = CREATE_GCODE_ID(Letter::M, Number::_4),
+        M5  = CREATE_GCODE_ID(Letter::M, Number::_5),
         M10 = CREATE_GCODE_ID(Letter::M, Number::_10),
         M11 = CREATE_GCODE_ID(Letter::M, Number::_11)
     };
@@ -30,11 +32,11 @@ public:
             struct m2  { uint8_t savePenUp; uint8_t savePenDown; } m2;
             struct m4  { uint8_t laserPower; } m4;
             struct m5  {
-                bool dirX ;
-                bool dirY ;
                 uint32_t height ;
                 uint32_t width ;
                 uint8_t speed ;
+                bool dirX ;
+                bool dirY ;
             } m5;
             struct g1  { // g1 and g28 have same data
                 float moveX ;
@@ -51,11 +53,11 @@ public:
         id((Id)CREATE_GCODE_ID(letter, number)),
         functionPtr(functionPtr_)
     { }
-    static const char* toFormat(Id id_);
+    static const char* toFormat(Id id);
+    static array toString(Letter letter, Number number);
+    static array toString(Id id);
     const char* toFormat() { return toFormat(id); }
-    static const char* toString(Letter let, Number num);
-    const char* toString() { return toString(letter, number); }
-    static const char* toString(Id id_);
+    array toString() { return toString(letter, number); }
     Id getId() { return id; };
     bool callback(const char *str);
     virtual ~Gcode() { };
