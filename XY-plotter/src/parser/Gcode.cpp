@@ -2,8 +2,7 @@
 #include <stdio.h>
 
 bool Gcode::callback (const char *str) {
-    if (functionPtr != nullptr) return functionPtr(str);
-    else                        return false;
+    return (functionPtr != nullptr ? functionPtr(str) : false);
 }
 
 const char* Gcode::toFormat(Id id_) {
