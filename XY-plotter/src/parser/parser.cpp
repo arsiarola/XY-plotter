@@ -54,7 +54,10 @@ void parseCode(const char *str, QueueHandle_t &queue) {
             found = true;
             if (gcodes[i]->callback(str)) { // returns true if data was extracted correctly (returns true for gcodes that dont need data extracted)
                 data.id = gcodes[i]->getId();
-                xQueueSendToBack(queue, &data, 0);
+                if (xQueueSendToBack(queue, &data, portMAX_DELAY) != pdTRUE) {
+                	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
+                };
+
             }
             else {
                 ITM_print("couldn't extract the data\n");
