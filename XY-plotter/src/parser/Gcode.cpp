@@ -57,5 +57,5 @@ const char* Gcode::toString(Letter let, Number num) {
 }
 
 const char* Gcode::toString(Id id_) {
-    return toString((Letter)getLetterFromID(id_), (Number)getNumberFromID(id_));
+    return toString((Letter)GET_LETTER_FROM_ID(id_), (Number)GET_NUMBER_FROM_ID(id_));
 }

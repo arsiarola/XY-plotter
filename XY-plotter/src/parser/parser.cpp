@@ -48,7 +48,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         return;
     }
 
-    Gcode::Id id = (Gcode::Id) getGcodeId(letter, number);
+    Gcode::Id id = (Gcode::Id) CREATE_GCODE_ID(letter, number);
     for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
         if (gcodes[i]->getId() == id) {
             found = true;

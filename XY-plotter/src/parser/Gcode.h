@@ -3,24 +3,24 @@
 
 #include <string>
 
-#define getGcodeId(letter, number) ((letter << 8) | (number))
+#define CREATE_GCODE_ID(letter, number) ((letter << 8) | (number))
 // have mask just in case we would store to a bigger variable than 8 bits
-#define getLetterFromID(id) ((id >> 8) & (0xFF))
-#define getNumberFromID(id) ((id)      & (0xFF))
+#define GET_LETTER_FROM_ID(id) ((id >> 8) & (0xFF))
+#define GET_NUMBER_FROM_ID(id) ((id)      & (0xFF))
 
 class Gcode {
 public:
     enum Letter : char { M = 'M', G = 'G' };
     enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
     enum Id : uint16_t {
-        G1 = getGcodeId(Letter::G, Number::_1),
-        G28 = getGcodeId(Letter::G, Number::_28),
-        M1 = getGcodeId(Letter::M, Number::_1),
-        M2 = getGcodeId(Letter::M, Number::_2),
-        M4 = getGcodeId(Letter::M, Number::_4),
-        M5 = getGcodeId(Letter::M, Number::_5),
-        M10 = getGcodeId(Letter::M, Number::_10),
-        M11 = getGcodeId(Letter::M, Number::_11)
+        G1 = CREATE_GCODE_ID(Letter::G, Number::_1),
+        G28 = CREATE_GCODE_ID(Letter::G, Number::_28),
+        M1 = CREATE_GCODE_ID(Letter::M, Number::_1),
+        M2 = CREATE_GCODE_ID(Letter::M, Number::_2),
+        M4 = CREATE_GCODE_ID(Letter::M, Number::_4),
+        M5 = CREATE_GCODE_ID(Letter::M, Number::_5),
+        M10 = CREATE_GCODE_ID(Letter::M, Number::_10),
+        M11 = CREATE_GCODE_ID(Letter::M, Number::_11)
     };
 
     typedef struct Data {
@@ -48,7 +48,7 @@ public:
     Gcode(Letter letter_, Number number_, bool (*functionPtr_)(const char *str) = nullptr)  :
         letter(letter_),
         number(number_),
-        id((Id)getGcodeId(letter, number)),
+        id((Id)CREATE_GCODE_ID(letter, number)),
         functionPtr(functionPtr_)
     { }
     static const char* toFormat(Id id_);
