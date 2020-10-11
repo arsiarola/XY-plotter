@@ -21,6 +21,8 @@
 #include "printer.h"
 #include "parser/Gcode.h"
 #include "usb/user_vcom.h"
+#include "motor.h"
+#include "plotter.h"
 
 #define READ_FROM_FILE_TEST 0
 
@@ -30,12 +32,24 @@
 
 
 /* VARIABLES */
-QueueHandle_t queue;
+static QueueHandle_t queue;
+static Motor* xMotor = new Motor({
+        { 0, 24, DigitalIoPin::output, true},
+        { 0, 9, DigitalIoPin::pullup, true},
+        { 0, 29, DigitalIoPin::pullup, true},
+        { 1, 0, DigitalIoPin::output, true}
+});
+
+static Motor* yMotor = new Motor({
+        { 0, 27, DigitalIoPin::output, true},
+        { 1, 3, DigitalIoPin::pullup, true},
+        { 0, 0, DigitalIoPin::pullup, true},
+        { 0, 28, DigitalIoPin::output, true}
+});
 
 
 #define BUFFER_SIZE 128
 #define STR_SIZE 80
-
 static void vTask1(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
     char buffer[BUFFER_SIZE] = "";
@@ -78,6 +92,11 @@ static void vTask2(void *pvParameters) {
                             data.data.g1.moveY,
                             data.data.g1.relative
                             );
+                    Plotter::plotLine(
+                            0,0,
+                            (int)data.data.g1.moveX, (int)data.data.g1.moveY,
+							100
+                        );
                     break;
                 case Gcode::Id::M1:
                     mDraw_print("%u", data.data.m1.penPos);
@@ -118,7 +137,11 @@ int main() {
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
+    Chip_RIT_Init(LPC_RITIMER);
+    Chip_RIT_Disable(LPC_RITIMER);
+    NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
     ITM_print("sizeof gCodeData = %u\n", sizeof(Gcode::Data));
+    Plotter::setMotors(xMotor, yMotor);
 
 #if READ_FROM_FILE_TEST == 1
     // TODO: what is the current working directory in mcu?
