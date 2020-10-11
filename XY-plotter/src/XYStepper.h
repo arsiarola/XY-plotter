@@ -17,14 +17,13 @@ class XYStepper
 public:
     XYStepper(DigitalIoPin *dirX, DigitalIoPin *stepX, DigitalIoPin *dirY, DigitalIoPin *stepY,
               DigitalIoPin *lmXMin, DigitalIoPin *lmXMax, DigitalIoPin *lmYMin, DigitalIoPin *lmYMax);
-    
+
     virtual ~XYStepper();
 
-    void RIT_start(int count, int pps); // pps = pulse per revolution
-
+    void RIT_start(int count, int pps); // pps = pulse number (number of steps) per second
+    void totalStep();
 
 private:
-
     DigitalIoPin *dirXPin;
     DigitalIoPin *stepXPin;
     DigitalIoPin *dirYPin;
@@ -37,6 +36,9 @@ private:
     volatile int RIT_count;
 
     SemaphoreHandle_t sbRIT;
+
+    long totalStepX;
+    long totalStepY;
 
 };
 

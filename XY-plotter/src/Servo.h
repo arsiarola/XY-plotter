@@ -8,8 +8,7 @@
 #ifndef SERVO_H_
 #define SERVO_H_
 
-
-#if defined (__USE_LPCOPEN)
+#if defined(__USE_LPCOPEN)
 #if defined(NO_BOARD_LIB)
 #include "chip.h"
 #include "sct_15xx.h"
@@ -24,17 +23,18 @@
 #define PWM_freq 20000
 #define PWM_cycle 1000;
 
-class Servo {
+class Servo
+{
 public:
     Servo(int port = 0, int pin = 10);
     void moveServo(double value);
     virtual ~Servo();
+
 private:
     int port;
     int pin;
 
     double duty_cycle;
 };
-
 
 #endif /* SERVO_H_ */
