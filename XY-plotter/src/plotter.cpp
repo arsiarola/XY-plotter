@@ -6,6 +6,8 @@ namespace Plotter {
     SemaphoreHandle_t sbRIT = xSemaphoreCreateBinary();
     Motor* xMotor = nullptr;
     Motor* yMotor = nullptr;
+    int currentX = 0;
+    int currentY = 0;
     int x1 = 0;
     int x2 = 0;
     int y1 = 0;
@@ -28,15 +30,46 @@ void setMotors(Motor* xMotor_, Motor* yMotor_) {
     yMotor = yMotor_;
 }
 
+void calibrate() {
+    while(
+            xMotor->limMax.read() ||
+            xMotor->limOrigin.read() ||
+            yMotor->limMax.read() ||
+            yMotor->limOrigin.read()
+         );
+    xMotor->direction.write((xMotor->originDirection));
+    yMotor->direction.write((yMotor->originDirection));
+    /* while (xMotor->limOrigin.read() == false) { */
+    /*     xMotor->motor.write(true); */
+    /*     xMotor->motor.write(false); */
+    /* } */
+    /* while (yMotor->limOrigin.read() == false) { */
+    /*     yMotor->motor.write(true); */
+    /*     yMotor->motor.write(false); */
+    /* } */
+    /* xMotor->direction.write((!xMotor->originDirection)); */
+    /* yMotor->direction.write((!yMotor->originDirection)); */
+    /* xMotor->motor.write(true); */
+    /* xMotor->motor.write(false); */
+    /* yMotor->motor.write(true); */
+    /* yMotor->motor.write(false); */
+    currentX = 0;
+    currentY = 0;
+}
+
 void bresenham() {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
-    xMotor->motor.write((bool)(x != prevX));
-    yMotor->motor.write((bool)(y != prevY));
-    ITM_print("count = %d, steps = %d\n", steps, count);
-    ITM_print("(%d,%d)  %d,%d\n", x,y, (bool)(x != prevX), (bool)(y != prevY));
+    int xStep = (bool)(x != prevX);
+    int yStep = (bool)(y != prevY);
+    currentX += xMotor->direction.read() == xMotor->originDirection ? -xStep : xStep;
+    currentY += yMotor->direction.read() == yMotor->originDirection ? -yStep : yStep;
+    xMotor->motor.write(xStep);
+    yMotor->motor.write(yStep);
+    /* ITM_print("count = %d, steps = %d\n", steps, count); */
+    /* ITM_print("(%d,%d)  %d,%d\n", x,y, (bool)(x != prevX), (bool)(y != prevY)); */
     prevX = x;
     prevY = y;
 
@@ -71,7 +104,6 @@ void initValues(int x1_, int y1_, int x2_, int y2_) {
     x2              = x1_ > x2_ ? x1_ : x2_;
     y1              = y1_ < y2_ ? y1_ : y2_;
     y2              = y1_ > y2_ ? y1_ : y2_;
-    ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
     dx              = abs(x2-x1);
     dy              = abs(y2-y1);
     xGreater        = (dx > dy);
@@ -85,7 +117,8 @@ void initValues(int x1_, int y1_, int x2_, int y2_) {
     y               = y1;
     prevX           = x;
     prevY           = y;
-    ITM_print("dx = %d, dy = %d\n", dx, dy);
+    ITM_print("%d,%d    %d,%d\n", x1_,y1_, x2_,y2_);
+    ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
 extern "C" {
@@ -106,6 +139,16 @@ extern "C" {
     }
 }
 
+
+void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
+    plotLine(
+        x1_,
+        y1_,
+        x2_ - currentX,
+        y2_ - currentY,
+        pps_
+    );
+}
 
 // TODO: since coordinates are given as floats think about error checking
 void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_) {

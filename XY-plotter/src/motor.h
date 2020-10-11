@@ -8,15 +8,18 @@ public:
 
     Motor(
         DigitalIoPin&& motor,
+        DigitalIoPin&& direction,
         DigitalIoPin&& limOrigin,
         DigitalIoPin&& limMax,
-        DigitalIoPin&& direction
+        bool originDirection
     );
     virtual ~Motor() { };
     DigitalIoPin motor;
+    DigitalIoPin direction;
     DigitalIoPin limOrigin;
     DigitalIoPin limMax;
-    DigitalIoPin direction;
+    bool originDirection;
+
 
 };
 #endif /* MOTOR_H_ */

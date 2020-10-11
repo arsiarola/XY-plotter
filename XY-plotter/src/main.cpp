@@ -33,20 +33,8 @@
 
 /* VARIABLES */
 static QueueHandle_t queue;
-static Motor* xMotor = new Motor({
-        { 0, 24, DigitalIoPin::output, true},
-        { 0, 9, DigitalIoPin::pullup, true},
-        { 0, 29, DigitalIoPin::pullup, true},
-        { 1, 0, DigitalIoPin::output, true}
-});
-
-static Motor* yMotor = new Motor({
-        { 0, 27, DigitalIoPin::output, true},
-        { 1, 3, DigitalIoPin::pullup, true},
-        { 0, 0, DigitalIoPin::pullup, true},
-        { 0, 28, DigitalIoPin::output, true}
-});
-
+static Motor* xMotor;
+static Motor* yMotor;
 
 #define BUFFER_SIZE 128
 #define STR_SIZE 80
@@ -55,7 +43,6 @@ static void vTask1(void *pvParameters) {
     char buffer[BUFFER_SIZE] = "";
     char str[STR_SIZE] = "";
     int length = 0;
-    ITM_print("starting while\n");
     while (1) {
 		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
 
@@ -76,13 +63,13 @@ static void vTask1(void *pvParameters) {
 
 static void vTask2(void *pvParameters) {
     Gcode::Data data;
+    Plotter::calibrate();
 	while (true) {
 		if (xQueueReceive(
                 queue,
                 &data,
                 portMAX_DELAY
              	 ) == pdTRUE ) {
-		    ITM_print("sizeof gCode::Data.data = %u\n", sizeof(data.data));
 			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
             switch (data.id) {
                 case Gcode::Id::G1:
@@ -92,10 +79,10 @@ static void vTask2(void *pvParameters) {
                             data.data.g1.moveY,
                             data.data.g1.relative
                             );
-                    Plotter::plotLine(
+                    Plotter::plotLineAbsolute(
                             0,0,
                             (int)data.data.g1.moveX, (int)data.data.g1.moveY,
-							100
+							1000
                         );
                     break;
                 case Gcode::Id::M1:
@@ -137,11 +124,41 @@ int main() {
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
+xMotor = new Motor({
+        { 0, 24, DigitalIoPin::output, true},
+        { 1, 0,  DigitalIoPin::output, true},
+        { 0, 9,  DigitalIoPin::pullup, true},
+        { 0, 29, DigitalIoPin::pullup, true},
+        false
+});
+
+yMotor = new Motor({
+        { 0, 27, DigitalIoPin::output, true},
+        { 0, 28, DigitalIoPin::output, true},
+        { 1, 3,  DigitalIoPin::pullup, true},
+        { 0, 0,  DigitalIoPin::pullup, true},
+        false
+});
+
+
     Chip_RIT_Init(LPC_RITIMER);
     Chip_RIT_Disable(LPC_RITIMER);
     NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
-    ITM_print("sizeof gCodeData = %u\n", sizeof(Gcode::Data));
+    ITM_print("Starting\n");
     Plotter::setMotors(xMotor, yMotor);
+
+    xTaskCreate(cdc_task, "CDC",
+				configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),
+				(TaskHandle_t *) NULL);
+
+    xTaskCreate(vTask1, "parser",
+            configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
+            (TaskHandle_t *) NULL);
+    xTaskCreate(vTask2, "motor",
+                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
+                (TaskHandle_t *) NULL);
+
+    vTaskStartScheduler();
 
 #if READ_FROM_FILE_TEST == 1
     // TODO: what is the current working directory in mcu?
@@ -159,21 +176,6 @@ int main() {
         }
         fclose(fp);
     }
-
-#else
-
-    xTaskCreate(cdc_task, "CDC",
-				configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),
-				(TaskHandle_t *) NULL);
-
-    xTaskCreate(vTask1, "parser",
-            configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
-            (TaskHandle_t *) NULL);
-    xTaskCreate(vTask2, "motor",
-                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
-                (TaskHandle_t *) NULL);
-
-    vTaskStartScheduler();
 #endif /* READ_FROM_FILE_TEST */
 
     return 0;

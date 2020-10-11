@@ -5,16 +5,21 @@
 #include "semphr.h"
 
 namespace Plotter {
-    extern void setMotors(Motor* xMotor_, Motor* yMotor_);
-    extern void start_polling(int pps_);
-    extern void stop_polling();
-    extern void bresenham();
-    extern void initValues(int x1_, int y1_, int x2_, int y2_);
-    extern void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_);
+    void setMotors(Motor* xMotor_, Motor* yMotor_);
+    void calibrate();
+    void start_polling(int pps_);
+    void stop_polling();
+    void bresenham();
+    void initValues(int x1_, int y1_, int x2_, int y2_);
+    void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_);
+    void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_);
 
     extern SemaphoreHandle_t sbRIT;
     extern Motor* xMotor;
     extern Motor* yMotor;
+    extern int currentX;
+    extern int currentY;
+
     extern int x1;
     extern int x2;
     extern int y1;
