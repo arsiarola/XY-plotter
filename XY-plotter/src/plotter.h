@@ -23,12 +23,23 @@ public:
     void initLaser();
     void handleGcodeData(const Gcode::Data &data);
 
+
+    inline int getTotalStepX() { return totalStepX; };
+    inline int getTotalStepY() { return totalStepY; };
+    inline void setXStepInMM(float standard) { xStepMM = (float) totalStepX / standard; };
+    inline void setYStepInMM(float standard) { yStepMM = (float) totalStepY / standard; };
+
 private:
     SemaphoreHandle_t sbRIT;
     Motor* xMotor = nullptr;
     Motor* yMotor = nullptr;
     int currentX;
     int currentY;
+
+    long totalStepX;
+    long totalStepY;
+    float xStepMM;
+    float yStepMM;
 
     // M5 reply
     bool saveDirX;// TODO: what should the default values be when M10 asks in the beginning
