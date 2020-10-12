@@ -27,6 +27,10 @@ private:
     int currentX;
     int currentY;
 
+    //Pen
+    int ticksPerSecond = 1'000'000;
+	int penFrequency = 50;
+
     int x1;
     int x2;
     int y1;

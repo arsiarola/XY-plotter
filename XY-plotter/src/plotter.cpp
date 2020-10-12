@@ -12,33 +12,33 @@ Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
 
 void Plotter::calibrate() {
     while(
-            xMotor->limMax.read() ||
-            xMotor->limOrigin.read() ||
-            yMotor->limMax.read() ||
-            yMotor->limOrigin.read()
+            xMotor->readMaxLimit()    ||
+            yMotor->readMaxLimit()    ||
+            xMotor->readOriginLimit() ||
+            yMotor->readOriginLimit()
      ){}
-	xMotor->direction.write((xMotor->originDirection));
-	yMotor->direction.write((yMotor->originDirection));
+	xMotor->writeDirection(xMotor->getOriginDirection());
+	yMotor->writeDirection(yMotor->getOriginDirection());
 	bool xRead;
 	bool yRead;
 	do {
-		xRead = xMotor->limOrigin.read();
-		yRead = yMotor->limOrigin.read();
-		xMotor->motor.write(!xRead);
-		yMotor->motor.write(!yRead);
-		vTaskDelay(10);
-		xMotor->motor.write(false);
-		yMotor->motor.write(false);
+		xRead = xMotor->readOriginLimit();
+		yRead = yMotor->readOriginLimit();
+		xMotor->writeStepper(!xRead);
+		yMotor->writeStepper(!yRead);
+		vTaskDelay(1);
+		xMotor->writeStepper(false);
+		yMotor->writeStepper(false);
 	}while (!xRead && !yRead);
 
 
-	xMotor->direction.write((!xMotor->originDirection));
-	yMotor->direction.write((!yMotor->originDirection));
-	xMotor->motor.write(true);
-	yMotor->motor.write(true);
-	vTaskDelay(10);
-	xMotor->motor.write(false);
-	yMotor->motor.write(false);
+	xMotor->writeDirection(!xMotor->getOriginDirection());
+	yMotor->writeDirection(!yMotor->getOriginDirection());
+	xMotor->writeStepper(true);
+	yMotor->writeStepper(true);
+	vTaskDelay(1);
+	xMotor->writeStepper(false);
+	yMotor->writeStepper(false);
     currentX = 0;
     currentY = 0;
 }
@@ -50,10 +50,10 @@ void Plotter::bresenham() {
     }
     int xStep = (bool)(x != prevX) ? 1 : 0;
     int yStep = (bool)(y != prevY) ? 1 : 0;
-    currentX += xMotor->direction.read() == xMotor->originDirection ? -xStep : xStep;
-    currentY += yMotor->direction.read() == yMotor->originDirection ? -yStep : yStep;
-    xMotor->motor.write(xStep);
-    yMotor->motor.write(yStep);
+    currentX += xMotor->readDirection() == xMotor->getOriginDirection() ? -xStep : xStep;
+    currentY += yMotor->readDirection() == yMotor->getOriginDirection() ? -yStep : yStep;
+    xMotor->writeStepper(xStep);
+    yMotor->writeStepper(yStep);
     /* ITM_print("count = %d, steps = %d\n", steps, count); */
     /* ITM_print("(%d,%d)  %d,%d\n", x,y, (bool)(x != prevX), (bool)(y != prevY)); */
     prevX = x;
@@ -75,8 +75,8 @@ void Plotter::bresenham() {
         }
     }
     ++count;
-    xMotor->motor.write(false);
-    yMotor->motor.write(false);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
 }
 
 void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
@@ -84,8 +84,8 @@ void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
     }
-    xMotor->direction.write(x2_ > x1_);
-    yMotor->direction.write(y2_ > y1_);
+    xMotor->writeDirection(x2_ > x1_);
+    yMotor->writeDirection(y2_ > y1_);
     x1              = x1_ < x2_ ? x1_ : x2_;
     x2              = x1_ > x2_ ? x1_ : x2_;
     y1              = y1_ < y2_ ? y1_ : y2_;
@@ -164,7 +164,6 @@ void Plotter::stop_polling() {
 }
 
 void Plotter::setPenValue(uint8_t value) {
-	int ticksPerSecond = 1'000'000;
 	int minDuty = ticksPerSecond / 1000; // 1ms
 	int maxDuty = ticksPerSecond / 500;  // 2ms
 	int temp = value * (maxDuty-minDuty) / 255 + minDuty;
@@ -181,12 +180,10 @@ void Plotter::initPen() {
 	Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, 0, 10);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
-	int ticksPerSecond = 1'000'000;
-	int frequency = 50;
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     //LPC_SCT0->CTRL_U |= (SystemCoreClock / ticksPerSecond) << 5;  // set prescaler, SCTimer/PWM clock = 1 MHz
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / frequency - 1;
+    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
     setPenValue(160);
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in all states
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in all st
@@ -204,12 +201,9 @@ void Plotter::initLaser() {
 	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
-	int ticksPerSecond = 1'000'000;
-	int frequency = 50;
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = 255;
-    setPenValue(160);
+    LPC_SCT1->MATCHREL[0].U = 255; // Set the laser low
 	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in all states
     LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in all st
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
