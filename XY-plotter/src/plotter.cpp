@@ -2,35 +2,15 @@
 #include "printer.h"
 #include <algorithm>
 
-namespace Plotter {
-    SemaphoreHandle_t sbRIT = xSemaphoreCreateBinary();
-    Motor* xMotor = nullptr;
-    Motor* yMotor = nullptr;
-    int currentX = 0;
-    int currentY = 0;
-    int x1 = 0;
-    int x2 = 0;
-    int y1 = 0;
-    int y2 = 0;
-    int dx = 0;
-    int dy = 0;
-    bool xGreater = 0;
-    int m_new = 0;
-    int slope_error_new = 0;
-    int steps = 0;
-    int count = 0;
-    int x = 0;
-    int y = 0;
-    int prevX = 0;
-    int prevY = 0;
-    int pps = 0;
-
-void setMotors(Motor* xMotor_, Motor* yMotor_) {
-    xMotor = xMotor_;
-    yMotor = yMotor_;
+Plotter* Plotter::activePlotter = nullptr;
+Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
+    xMotor(xMotor),
+    yMotor(yMotor)
+    {
+    	sbRIT = xSemaphoreCreateBinary();
 }
 
-void calibrate() {
+void Plotter::calibrate() {
     while(
             xMotor->limMax.read() ||
             xMotor->limOrigin.read() ||
@@ -57,7 +37,7 @@ void calibrate() {
     currentY = 0;
 }
 
-void bresenham() {
+void Plotter::bresenham() {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
@@ -93,7 +73,7 @@ void bresenham() {
     yMotor->motor.write(false);
 }
 
-void initValues(int x1_, int y1_, int x2_, int y2_) {
+void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
@@ -121,18 +101,22 @@ void initValues(int x1_, int y1_, int x2_, int y2_) {
     ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
+void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
+    bresenham();
+    if (count > steps) {
+        stop_polling();
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    }
+    else {
+        start_polling(pps);
+    }
+}
+
 extern "C" {
     void RIT_IRQHandler(void) {
         Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
         portBASE_TYPE xHigherPriorityWoken = pdFALSE;
-        bresenham();
-        if (count > steps) {
-            stop_polling();
-            xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-        }
-        else {
-            start_polling(pps);
-        }
+        if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction(xHigherPriorityWoken);
 
         // End the ISR and (possibly) do a context switch
         portEND_SWITCHING_ISR(xHigherPriorityWoken);
@@ -140,7 +124,7 @@ extern "C" {
 }
 
 
-void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
     plotLine(
         x1_,
         y1_,
@@ -151,14 +135,14 @@ void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
 }
 
 // TODO: since coordinates are given as floats think about error checking
-void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLine(int x1_,int y1_, int x2_,int y2_, int pps_) {
     initValues(x1_,y1_, x2_,y2_);
     pps = pps_;
     start_polling(pps);
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 
-void start_polling(int pps_) {
+void Plotter::start_polling(int pps_) {
     Chip_RIT_Disable(LPC_RITIMER);
     uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps_;
     Chip_RIT_EnableCompClear(LPC_RITIMER);
@@ -168,12 +152,12 @@ void start_polling(int pps_) {
     NVIC_EnableIRQ(RITIMER_IRQn);
 }
 
-void stop_polling() {
+void Plotter::stop_polling() {
     NVIC_DisableIRQ(RITIMER_IRQn);
     Chip_RIT_Disable(LPC_RITIMER);
 }
 
-void setPenValue(uint8_t value) {
+void Plotter::setPenValue(uint8_t value) {
 	int ticksPerSecond = 1'000'000;
 	int minDuty = ticksPerSecond / 1000; // 1ms
 	int maxDuty = ticksPerSecond / 500;  // 2ms
@@ -184,7 +168,7 @@ void setPenValue(uint8_t value) {
 	ITM_print("duty = %d\n", dutycycle);
 }
 
-void initPen() {
+void Plotter::initPen() {
     Chip_SCT_Init(LPC_SCT0);
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
 	#if defined(BOARD_NXP_LPCXPRESSO_1549)
@@ -193,7 +177,6 @@ void initPen() {
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
 	int ticksPerSecond = 1'000'000;
 	int frequency = 50;
-	float ms = 1;
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     //LPC_SCT0->CTRL_U |= (SystemCoreClock / ticksPerSecond) << 5;  // set prescaler, SCTimer/PWM clock = 1 MHz
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
@@ -206,6 +189,5 @@ void initPen() {
     LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
     LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
-}
 }
 
