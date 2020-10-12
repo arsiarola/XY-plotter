@@ -87,8 +87,8 @@ static void vTask2(void *pvParameters) {
                 &data,
                 portMAX_DELAY
              	 ) == pdTRUE ) {
-			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
-            mDraw_print("\r\n");
+			UART_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
+            UART_print("\r\n");
             plotter->handleGcodeData(data);
             USB_send((uint8_t *) "OK\r\n", 4);
 		}

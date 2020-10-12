@@ -6,19 +6,19 @@
 
 #define RELEASE 0
 
-extern LpcUart *mDraw_uart;
+namespace Printer {
+    extern LpcUart* debug_uart;
+    int uart_print(const char *str);
+    int arg_print(int (*callback) (const char *), const char *format, ...);
+}
 
-// we cant just use mDraw_uart.write as a callback function since mDraw_uart hasnt been compiled yet
-// so lets make function that just uses mDraw_uart.write. We can use uart_print now as callback.
-int uart_print(const char *str);
-int arg_print(int (*callback) (const char *), const char *format, ...);
 
 #if RELEASE == 1
-	#define mDraw_print(...)
+	#define UART_print(...)
 	#define ITM_print(...)
 #else
-	#define mDraw_print(...) arg_print(uart_print, __VA_ARGS__)
-    #define ITM_print(...) arg_print(ITM_write, __VA_ARGS__)
+	#define UART_print(...) Printer::arg_print(Printer::uart_print, __VA_ARGS__)
+    #define ITM_print(...)  Printer::arg_print(ITM_write, __VA_ARGS__)
 #endif /* RELEASE */
 
 

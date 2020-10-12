@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <string.h>
+#include <math.h>
 
 Plotter* Plotter::activePlotter = nullptr;
 Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
@@ -59,10 +60,12 @@ void Plotter::bresenham() {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
-    int xStep = (bool)(x != prevX) ? 1 : 0;
-    int yStep = (bool)(y != prevY) ? 1 : 0;
-    moveIfInArea(xMotor, xStep, currentX);
-    moveIfInArea(yMotor, yStep, currentY);
+    int xStep = x != prevX ? 1 : 0;
+    int yStep = y != prevY ? 1 : 0;
+    moveIfInArea(xMotor, xStep);
+    moveIfInArea(yMotor, yStep);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
     currentX += xMotor->isOriginDirection() ? -xStep : xStep;
     currentY += yMotor->isOriginDirection() ? -yStep : yStep;
 
@@ -85,8 +88,6 @@ void Plotter::bresenham() {
         }
     }
     ++count;
-    xMotor->writeStepper(false);
-    yMotor->writeStepper(false);
 }
 
 void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
@@ -223,7 +224,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
     switch (data.id) {
         case Gcode::Id::G1:
         case Gcode::Id::G28:
-            mDraw_print("%f, %f, %d",
+            UART_print("%f, %f, %d",
                         data.data.g1.moveX,
                         data.data.g1.moveY,
                         data.data.g1.relative
@@ -231,35 +232,35 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             if (data.data.g1.relative) {
                 plotLine(
                     0,0,
-                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                    (int)round(data.data.g1.moveX), (int)round(data.data.g1.moveY)
                 );
             }
             else {
                 plotLineAbsolute(
                     0,0,
-                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                    (int)round(data.data.g1.moveX), (int)round(data.data.g1.moveY)
                 );
             }
             break;
 
         case Gcode::Id::M1:
-            mDraw_print("%u", data.data.m1.penPos);
+            UART_print("%u", data.data.m1.penPos);
             setPenValue(data.data.m1.penPos);
             break;
 
         case Gcode::Id::M2:
-            mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
+            UART_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
             savePenUp   = data.data.m2.savePenUp;
             savePenDown = data.data.m2.savePenDown;
             break;
 
         case Gcode::Id::M4:
             // TODO: create function for setting laser power
-            mDraw_print("%u", data.data.m4.laserPower);
+            UART_print("%u", data.data.m4.laserPower);
             break;
 
         case Gcode::Id::M5:
-            mDraw_print("%d, %d, %u, %u, %u",
+            UART_print("%d, %d, %u, %u, %u",
                         data.data.m5.dirX,
                         data.data.m5.dirY,
                         data.data.m5.height,
