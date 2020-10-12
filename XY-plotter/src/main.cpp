@@ -77,8 +77,10 @@ static void vTask1(void *pvParameters) {
 }
 
 static void vTask2(void *pvParameters) {
+	vTaskDelay(100); /* wait just in case */
     Gcode::Data data;
     plotter->initPen();
+    plotter->initLaser();
     plotter->calibrate();
 	while (true) {
 		if (xQueueReceive(

@@ -16,23 +16,29 @@ void Plotter::calibrate() {
             xMotor->limOrigin.read() ||
             yMotor->limMax.read() ||
             yMotor->limOrigin.read()
-         );
-//    xMotor->direction.write((xMotor->originDirection));
-//    yMotor->direction.write((yMotor->originDirection));
-//    while (xMotor->limOrigin.read() == false) {
-//        xMotor->motor.write(true);
-//        xMotor->motor.write(false);
-//    }
-//    while (yMotor->limOrigin.read() == false) {
-//        yMotor->motor.write(true);
-//        yMotor->motor.write(false);
-//    }
-//    xMotor->direction.write((!xMotor->originDirection));
-//    yMotor->direction.write((!yMotor->originDirection));
-//    xMotor->motor.write(true);
-//    xMotor->motor.write(false);
-//    yMotor->motor.write(true);
-//    yMotor->motor.write(false);
+     ){}
+	xMotor->direction.write((xMotor->originDirection));
+	yMotor->direction.write((yMotor->originDirection));
+	bool xRead;
+	bool yRead;
+	do {
+		xRead = xMotor->limOrigin.read();
+		yRead = yMotor->limOrigin.read();
+		xMotor->motor.write(!xRead);
+		yMotor->motor.write(!yRead);
+		vTaskDelay(10);
+		xMotor->motor.write(false);
+		yMotor->motor.write(false);
+	}while (!xRead && !yRead);
+
+
+	xMotor->direction.write((!xMotor->originDirection));
+	yMotor->direction.write((!yMotor->originDirection));
+	xMotor->motor.write(true);
+	yMotor->motor.write(true);
+	vTaskDelay(10);
+	xMotor->motor.write(false);
+	yMotor->motor.write(false);
     currentX = 0;
     currentY = 0;
 }
@@ -189,5 +195,27 @@ void Plotter::initPen() {
     LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
     LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
+}
+
+void Plotter::initLaser() {
+    Chip_SCT_Init(LPC_SCT2);
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
+	#if defined(BOARD_NXP_LPCXPRESSO_1549)
+	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
+	#endif
+	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
+	int ticksPerSecond = 1'000'000;
+	int frequency = 50;
+    LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
+    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT1->MATCHREL[0].U = 255;
+    setPenValue(160);
+	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in all states
+    LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in all st
+    LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
+    LPC_SCT1->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
+    LPC_SCT1->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
+    LPC_SCT1->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
+    LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
 }
 

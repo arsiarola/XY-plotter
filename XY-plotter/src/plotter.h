@@ -18,6 +18,7 @@ public:
     void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_);
     void initPen();
     void setPenValue(uint8_t value);
+    void initLaser();
 
 private:
     SemaphoreHandle_t sbRIT;
