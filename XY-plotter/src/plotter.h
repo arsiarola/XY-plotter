@@ -13,6 +13,8 @@ namespace Plotter {
     void initValues(int x1_, int y1_, int x2_, int y2_);
     void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_);
     void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_);
+void initPen();
+void setPenValue(uint8_t value);
 
     extern SemaphoreHandle_t sbRIT;
     extern Motor* xMotor;

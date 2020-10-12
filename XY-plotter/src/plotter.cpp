@@ -37,22 +37,22 @@ void calibrate() {
             yMotor->limMax.read() ||
             yMotor->limOrigin.read()
          );
-    xMotor->direction.write((xMotor->originDirection));
-    yMotor->direction.write((yMotor->originDirection));
-    /* while (xMotor->limOrigin.read() == false) { */
-    /*     xMotor->motor.write(true); */
-    /*     xMotor->motor.write(false); */
-    /* } */
-    /* while (yMotor->limOrigin.read() == false) { */
-    /*     yMotor->motor.write(true); */
-    /*     yMotor->motor.write(false); */
-    /* } */
-    /* xMotor->direction.write((!xMotor->originDirection)); */
-    /* yMotor->direction.write((!yMotor->originDirection)); */
-    /* xMotor->motor.write(true); */
-    /* xMotor->motor.write(false); */
-    /* yMotor->motor.write(true); */
-    /* yMotor->motor.write(false); */
+//    xMotor->direction.write((xMotor->originDirection));
+//    yMotor->direction.write((yMotor->originDirection));
+//    while (xMotor->limOrigin.read() == false) {
+//        xMotor->motor.write(true);
+//        xMotor->motor.write(false);
+//    }
+//    while (yMotor->limOrigin.read() == false) {
+//        yMotor->motor.write(true);
+//        yMotor->motor.write(false);
+//    }
+//    xMotor->direction.write((!xMotor->originDirection));
+//    yMotor->direction.write((!yMotor->originDirection));
+//    xMotor->motor.write(true);
+//    xMotor->motor.write(false);
+//    yMotor->motor.write(true);
+//    yMotor->motor.write(false);
     currentX = 0;
     currentY = 0;
 }
@@ -62,8 +62,8 @@ void bresenham() {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
-    int xStep = (bool)(x != prevX);
-    int yStep = (bool)(y != prevY);
+    int xStep = (bool)(x != prevX) ? 1 : 0;
+    int yStep = (bool)(y != prevY) ? 1 : 0;
     currentX += xMotor->direction.read() == xMotor->originDirection ? -xStep : xStep;
     currentY += yMotor->direction.read() == yMotor->originDirection ? -yStep : yStep;
     xMotor->motor.write(xStep);
@@ -172,4 +172,40 @@ void stop_polling() {
     NVIC_DisableIRQ(RITIMER_IRQn);
     Chip_RIT_Disable(LPC_RITIMER);
 }
+
+void setPenValue(uint8_t value) {
+	int ticksPerSecond = 1'000'000;
+	int minDuty = ticksPerSecond / 1000; // 1ms
+	int maxDuty = ticksPerSecond / 500;  // 2ms
+	int temp = value * (maxDuty-minDuty) / 255 + minDuty;
+	int dutycycle = temp;
+    LPC_SCT0->MATCHREL[1].U = dutycycle;
+    LPC_SCT0->OUT[0].SET = 1;
+	ITM_print("duty = %d\n", dutycycle);
 }
+
+void initPen() {
+    Chip_SCT_Init(LPC_SCT0);
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
+	#if defined(BOARD_NXP_LPCXPRESSO_1549)
+	Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, 0, 10);
+	#endif
+	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
+	int ticksPerSecond = 1'000'000;
+	int frequency = 50;
+	float ms = 1;
+    LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
+    //LPC_SCT0->CTRL_U |= (SystemCoreClock / ticksPerSecond) << 5;  // set prescaler, SCTimer/PWM clock = 1 MHz
+    LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / frequency - 1;
+    setPenValue(160);
+	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in all states
+    LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in all st
+    LPC_SCT0->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
+    LPC_SCT0->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
+    LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
+    LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
+    LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
+}
+}
+

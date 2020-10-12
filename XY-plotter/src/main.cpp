@@ -37,32 +37,43 @@ static Motor* xMotor;
 static Motor* yMotor;
 
 #define BUFFER_SIZE 128
-#define STR_SIZE 80
+#define STR_SIZE 64
 static void vTask1(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
     char buffer[BUFFER_SIZE] = "";
     char str[STR_SIZE] = "";
-    int length = 0;
+    int bufferLength = 0;
+    int strLength = 0;
+    bool endLine = false;
     while (1) {
-		uint32_t received = USB_receive((uint8_t *)str, STR_SIZE-1);
-
+		uint32_t received = USB_receive((uint8_t *) str+strLength, STR_SIZE-strLength-1);
         if (received > 0) {
-			str[received] = 0; /* make sure we have a zero at the end */
-            length += received;
-            strncat(buffer, str, BUFFER_SIZE);
-            if (strchr(str, '\n') == NULL && strchr(str, '\r') == NULL && length < 128-1) continue;
-            if (length > BUFFER_SIZE-1) length = BUFFER_SIZE-1;
-            buffer[length] = '\0';
-            ITM_write(buffer);
-            parseCode(buffer, queue);
-            length = 0;
-			buffer[0] = '\0';
+			str[strLength+received] = 0; /* make sure we have a null at the end */
+            strLength += received;
+            ITM_print("str=%s,strLen=%d		buf=%s,bufLen=%d\n", str, strLength, buffer, bufferLength);
+            endLine = (strchr(str, '\n') != NULL || strchr(str, '\r') != NULL || bufferLength >= BUFFER_SIZE-1);
+            if (endLine || strLength >= STR_SIZE-1) {
+                strncat(buffer+bufferLength, str, BUFFER_SIZE-bufferLength-1);
+                bufferLength = bufferLength+strLength >= BUFFER_SIZE-1 ? BUFFER_SIZE-1 : bufferLength+strLength;
+                strLength = 0;
+                str[0] = '\0';
+            }
+            //ITM_print("str=%s, bufLen=%d, strLen=%d\n", str, bufferLength, strLength);
+            if (endLine) {
+                ITM_write(buffer);
+                parseCode(buffer, queue);
+                bufferLength = 0;
+                buffer[0] = '\0';
+                strLength = 0;
+                str[0] = '\0';
+            }
         }
     }
 }
 
 static void vTask2(void *pvParameters) {
     Gcode::Data data;
+    Plotter::initPen();
     Plotter::calibrate();
 	while (true) {
 		if (xQueueReceive(
@@ -87,6 +98,7 @@ static void vTask2(void *pvParameters) {
                     break;
                 case Gcode::Id::M1:
                     mDraw_print("%u", data.data.m1.penPos);
+                    Plotter::setPenValue(data.data.m1.penPos);
                     break;
                 case Gcode::Id::M2:
                     mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
@@ -124,21 +136,21 @@ int main() {
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
-xMotor = new Motor({
-        { 0, 24, DigitalIoPin::output, true},
-        { 1, 0,  DigitalIoPin::output, true},
-        { 0, 9,  DigitalIoPin::pullup, true},
-        { 0, 29, DigitalIoPin::pullup, true},
-        false
-});
+	xMotor = new Motor({
+			{ 0, 24, DigitalIoPin::output, true},
+			{ 1, 0,  DigitalIoPin::output, true},
+			{ 0, 9,  DigitalIoPin::pullup, true},
+			{ 0, 29, DigitalIoPin::pullup, true},
+			false
+	});
 
-yMotor = new Motor({
-        { 0, 27, DigitalIoPin::output, true},
-        { 0, 28, DigitalIoPin::output, true},
-        { 1, 3,  DigitalIoPin::pullup, true},
-        { 0, 0,  DigitalIoPin::pullup, true},
-        false
-});
+	yMotor = new Motor({
+			{ 0, 27, DigitalIoPin::output, true},
+			{ 0, 28, DigitalIoPin::output, true},
+			{ 1, 3,  DigitalIoPin::pullup, true},
+			{ 0, 0,  DigitalIoPin::pullup, true},
+			false
+	});
 
 
     Chip_RIT_Init(LPC_RITIMER);
@@ -155,7 +167,7 @@ yMotor = new Motor({
             configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
             (TaskHandle_t *) NULL);
     xTaskCreate(vTask2, "motor",
-                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 1UL),
+                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 2UL),
                 (TaskHandle_t *) NULL);
 
     vTaskStartScheduler();
