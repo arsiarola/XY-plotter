@@ -27,26 +27,41 @@ void Plotter::calibrate() {
 	yMotor->writeDirection(yMotor->getOriginDirection());
 	bool xRead;
 	bool yRead;
-	do {
-		xRead = xMotor->readOriginLimit();
-		yRead = yMotor->readOriginLimit();
+    do {
+        xRead = xMotor->readOriginLimit();
+        yRead = yMotor->readOriginLimit();
 		xMotor->writeStepper(!xRead);
 		yMotor->writeStepper(!yRead);
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
-	} while (!xRead && !yRead);
+    } while (!(xRead && yRead));
 
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
-	xMotor->writeStepper(true);
-	yMotor->writeStepper(true);
-	vTaskDelay(1);
-	xMotor->writeStepper(false);
-	yMotor->writeStepper(false);
     currentX = 0;
     currentY = 0;
+    ITM_print("calibration done\n");
+}
+
+void Plotter::moveIfInArea(Motor* motor, bool step, int currentPos) {
+    if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
+        (!motor->isOriginDirection() && !motor->readMaxLimit())) {
+        if (currentX >= 0 && currentY >= 0) {
+            motor->writeStepper(step);
+        }
+
+        // Cannot set pen value inside ISR?
+        /* if (currentPos < 0) { */
+            /* uint8_t tempPenValue = currentPenValue; */
+            /* setPenValue(savePenUp); */
+            /* motor->writeStepper(step); */
+            /* setPenValue(tempPenValue); */
+        /* } */
+        /* else */
+        /*     motor->writeStepper(step); */
+    }
 }
 
 void Plotter::bresenham() {
@@ -56,12 +71,11 @@ void Plotter::bresenham() {
     }
     int xStep = (bool)(x != prevX) ? 1 : 0;
     int yStep = (bool)(y != prevY) ? 1 : 0;
-    currentX += xMotor->readDirection() == xMotor->getOriginDirection() ? -xStep : xStep;
-    currentY += yMotor->readDirection() == yMotor->getOriginDirection() ? -yStep : yStep;
-    xMotor->writeStepper(xStep);
-    yMotor->writeStepper(yStep);
-    /* ITM_print("count = %d, steps = %d\n", steps, count); */
-    /* ITM_print("(%d,%d)  %d,%d\n", x,y, (bool)(x != prevX), (bool)(y != prevY)); */
+    moveIfInArea(xMotor, xStep, currentX);
+    moveIfInArea(yMotor, yStep, currentY);
+    currentX += xMotor->isOriginDirection() ? -xStep : xStep;
+    currentY += yMotor->isOriginDirection() ? -yStep : yStep;
+
     prevX = x;
     prevY = y;
 
@@ -116,6 +130,7 @@ void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
 void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
     bresenham();
     if (count > steps) {
+        ITM_print("currentX = %d, currentY = %d\n", currentX, currentY);
         stop_polling();
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
     }
@@ -169,13 +184,9 @@ void Plotter::stop_polling() {
 }
 
 void Plotter::setPenValue(uint8_t value) {
-	int minDuty = ticksPerSecond / 1000; // 1ms
-	int maxDuty = ticksPerSecond / 500;  // 2ms
-	int temp = value * (maxDuty-minDuty) / 255 + minDuty;
-	int dutycycle = temp;
-    LPC_SCT0->MATCHREL[1].U = dutycycle;
+    currentPenValue = value;
+    LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
     LPC_SCT0->OUT[0].SET = 1;
-	ITM_print("duty = %d\n", dutycycle);
 }
 
 void Plotter::initPen() {

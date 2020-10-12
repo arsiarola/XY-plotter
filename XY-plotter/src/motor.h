@@ -24,6 +24,8 @@ public:
     void writeStepper(bool step)  { return stepper.write(step); }
     void writeDirection(bool dir) { return direction.write(dir); }
 
+    bool isOriginDirection() { return direction.read() ==  originDirection; }
+
     bool getOriginDirection() { return originDirection; }
 private:
     DigitalIoPin stepper;

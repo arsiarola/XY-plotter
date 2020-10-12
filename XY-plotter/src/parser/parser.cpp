@@ -2,7 +2,6 @@
 #include <string.h>
 #include "parser.h"
 #include "../printer.h"
-#include "../ITM_write.h"
 #include "Gcode.h"
 
 #include <stdio.h>
@@ -67,10 +66,10 @@ void parseCode(const char *str, QueueHandle_t &queue) {
     }
 
     if (!found) {
-        ITM_write("Error: ");
+        ITM_print("Error: ");
         ITM_print("%s is unknown Gcode\n", gcode);
     }
-    ITM_write("\n");
+    ITM_print("\n");
 }
 
 
@@ -139,13 +138,13 @@ bool m5ExtractData(const char *str) {
 
 /* Reply to mdraw with all values? */
 bool m10ExtractData (const char *str) {
-    ITM_write("M10\n");
+    ITM_print("M10\n");
     return true;
 }
 
 /*M11: Limit switch status query*/
 bool m11ExtractData (const char *str) {
-    ITM_write("M11\n");
+    ITM_print("M11\n");
     //TODO: get limit switch statuses from plotter and print them to mdraw
     return true;
 }
@@ -160,7 +159,7 @@ bool g1ExtractData (const char *str) {
                 &data.data.g1.relative
             ) == 3)
     {
-        ITM_write("G1: ");
+        ITM_print("G1: ");
         ITM_print("Moving to %s coordinates X %.2f and Y %.2f\n",
                 data.data.g1.relative ? "relative" : "absolute",
                   data.data.g1.moveX,
@@ -173,7 +172,7 @@ bool g1ExtractData (const char *str) {
 
 /*G28: Move to origin*/
 bool g28ExtractData (const char *str) {
-    ITM_write("G28: Moving to origin\n");
+    ITM_print("G28: Moving to origin\n");
     data.data.g1.moveX = 0;
     data.data.g1.moveY = 0;
     data.data.g1.relative = false;

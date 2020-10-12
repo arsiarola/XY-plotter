@@ -51,11 +51,10 @@ static void vTask1(void *pvParameters) {
     bool endLine = false;
     while (1) {
 		uint32_t received = USB_receive((uint8_t *) str+strLength, STR_SIZE-strLength-1);
-		ITM_print("received = %d", received);
         if (received > 0) {
 			str[strLength+received] = 0; /* make sure we have a null at the end */
             strLength += received;
-            ITM_print("str=%s,strLen=%d		buf=%s,bufLen=%d\n", str, strLength, buffer, bufferLength);
+            /* ITM_print("str=%s,strLen=%d		buf=%s,bufLen=%d\n", str, strLength, buffer, bufferLength); */
             endLine = (strchr(str, '\n') != NULL || strchr(str, '\r') != NULL || bufferLength >= BUFFER_SIZE-1);
             if (endLine || strLength >= STR_SIZE-1) {
                 strncat(buffer+bufferLength, str, BUFFER_SIZE-bufferLength-1);
@@ -65,7 +64,7 @@ static void vTask1(void *pvParameters) {
             }
             //ITM_print("str=%s, bufLen=%d, strLen=%d\n", str, bufferLength, strLength);
             if (endLine) {
-                ITM_write(buffer);
+                ITM_print("%s", buffer);
                 parseCode(buffer, queue);
                 bufferLength = 0;
                 buffer[0] = '\0';
@@ -119,8 +118,8 @@ int main() {
 	yMotor = new Motor({
 			{ 0, 27, DigitalIoPin::output, true},
 			{ 0, 28, DigitalIoPin::output, true},
-			{ 1, 3,  DigitalIoPin::pullup, true},
 			{ 0, 0,  DigitalIoPin::pullup, true},
+			{ 1, 3,  DigitalIoPin::pullup, true},
 			false
 	});
 

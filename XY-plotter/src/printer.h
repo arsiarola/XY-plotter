@@ -4,6 +4,8 @@
 #include "LpcUart.h"
 #define ARG_BUFFER_SIZE 128
 
+#define RELEASE 0
+
 extern LpcUart *mDraw_uart;
 
 // we cant just use mDraw_uart.write as a callback function since mDraw_uart hasnt been compiled yet
@@ -11,8 +13,14 @@ extern LpcUart *mDraw_uart;
 int uart_print(const char *str);
 int arg_print(int (*callback) (const char *), const char *format, ...);
 
-#define mDraw_print(...) arg_print(uart_print, __VA_ARGS__)
-#define ITM_print(...) arg_print(ITM_write, __VA_ARGS__)
+#if RELEASE == 1
+	#define mDraw_print(...)
+	#define ITM_print(...)
+#else
+	#define mDraw_print(...) arg_print(uart_print, __VA_ARGS__)
+    #define ITM_print(...) arg_print(ITM_write, __VA_ARGS__)
+#endif /* RELEASE */
 
 
 #endif /* PRINTER_H_ */
+
