@@ -3,7 +3,7 @@
 #include "motor.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
-#include "../parser/Gcode.h"
+#include "Gcode.h"
 
 class Plotter {
 public:
