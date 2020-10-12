@@ -1,73 +1,65 @@
 #include "plotter.h"
 #include "printer.h"
+#include "usb/user_vcom.h"
+
 #include <algorithm>
+#include <string.h>
 
-namespace Plotter {
-    SemaphoreHandle_t sbRIT = xSemaphoreCreateBinary();
-    Motor* xMotor = nullptr;
-    Motor* yMotor = nullptr;
-    int currentX = 0;
-    int currentY = 0;
-    int x1 = 0;
-    int x2 = 0;
-    int y1 = 0;
-    int y2 = 0;
-    int dx = 0;
-    int dy = 0;
-    bool xGreater = 0;
-    int m_new = 0;
-    int slope_error_new = 0;
-    int steps = 0;
-    int count = 0;
-    int x = 0;
-    int y = 0;
-    int prevX = 0;
-    int prevY = 0;
-    int pps = 0;
-
-void setMotors(Motor* xMotor_, Motor* yMotor_) {
-    xMotor = xMotor_;
-    yMotor = yMotor_;
+Plotter* Plotter::activePlotter = nullptr;
+Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
+    xMotor(xMotor),
+    yMotor(yMotor)
+    {
+    	sbRIT = xSemaphoreCreateBinary();
+        saveDirX = !xMotor->getOriginDirection();
+        saveDirY = !xMotor->getOriginDirection();
 }
 
-void calibrate() {
+// TODO: calculate the area and put the values in savePlottingWidth and height
+void Plotter::calibrate() {
     while(
-            xMotor->limMax.read() ||
-            xMotor->limOrigin.read() ||
-            yMotor->limMax.read() ||
-            yMotor->limOrigin.read()
-         );
-//    xMotor->direction.write((xMotor->originDirection));
-//    yMotor->direction.write((yMotor->originDirection));
-//    while (xMotor->limOrigin.read() == false) {
-//        xMotor->motor.write(true);
-//        xMotor->motor.write(false);
-//    }
-//    while (yMotor->limOrigin.read() == false) {
-//        yMotor->motor.write(true);
-//        yMotor->motor.write(false);
-//    }
-//    xMotor->direction.write((!xMotor->originDirection));
-//    yMotor->direction.write((!yMotor->originDirection));
-//    xMotor->motor.write(true);
-//    xMotor->motor.write(false);
-//    yMotor->motor.write(true);
-//    yMotor->motor.write(false);
+            xMotor->readMaxLimit()    ||
+            yMotor->readMaxLimit()    ||
+            xMotor->readOriginLimit() ||
+            yMotor->readOriginLimit()
+     ){}
+	xMotor->writeDirection(xMotor->getOriginDirection());
+	yMotor->writeDirection(yMotor->getOriginDirection());
+	bool xRead;
+	bool yRead;
+	do {
+		xRead = xMotor->readOriginLimit();
+		yRead = yMotor->readOriginLimit();
+		xMotor->writeStepper(!xRead);
+		yMotor->writeStepper(!yRead);
+		vTaskDelay(1);
+		xMotor->writeStepper(false);
+		yMotor->writeStepper(false);
+	} while (!xRead && !yRead);
+
+
+	xMotor->writeDirection(!xMotor->getOriginDirection());
+	yMotor->writeDirection(!yMotor->getOriginDirection());
+	xMotor->writeStepper(true);
+	yMotor->writeStepper(true);
+	vTaskDelay(1);
+	xMotor->writeStepper(false);
+	yMotor->writeStepper(false);
     currentX = 0;
     currentY = 0;
 }
 
-void bresenham() {
+void Plotter::bresenham() {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
     int xStep = (bool)(x != prevX) ? 1 : 0;
     int yStep = (bool)(y != prevY) ? 1 : 0;
-    currentX += xMotor->direction.read() == xMotor->originDirection ? -xStep : xStep;
-    currentY += yMotor->direction.read() == yMotor->originDirection ? -yStep : yStep;
-    xMotor->motor.write(xStep);
-    yMotor->motor.write(yStep);
+    currentX += xMotor->readDirection() == xMotor->getOriginDirection() ? -xStep : xStep;
+    currentY += yMotor->readDirection() == yMotor->getOriginDirection() ? -yStep : yStep;
+    xMotor->writeStepper(xStep);
+    yMotor->writeStepper(yStep);
     /* ITM_print("count = %d, steps = %d\n", steps, count); */
     /* ITM_print("(%d,%d)  %d,%d\n", x,y, (bool)(x != prevX), (bool)(y != prevY)); */
     prevX = x;
@@ -89,17 +81,17 @@ void bresenham() {
         }
     }
     ++count;
-    xMotor->motor.write(false);
-    yMotor->motor.write(false);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
 }
 
-void initValues(int x1_, int y1_, int x2_, int y2_) {
+void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
     }
-    xMotor->direction.write(x2_ > x1_);
-    yMotor->direction.write(y2_ > y1_);
+    xMotor->writeDirection(x2_ > x1_);
+    yMotor->writeDirection(y2_ > y1_);
     x1              = x1_ < x2_ ? x1_ : x2_;
     x2              = x1_ > x2_ ? x1_ : x2_;
     y1              = y1_ < y2_ ? y1_ : y2_;
@@ -121,18 +113,22 @@ void initValues(int x1_, int y1_, int x2_, int y2_) {
     ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
+void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
+    bresenham();
+    if (count > steps) {
+        stop_polling();
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    }
+    else {
+        start_polling(pps);
+    }
+}
+
 extern "C" {
     void RIT_IRQHandler(void) {
         Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
         portBASE_TYPE xHigherPriorityWoken = pdFALSE;
-        bresenham();
-        if (count > steps) {
-            stop_polling();
-            xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-        }
-        else {
-            start_polling(pps);
-        }
+        if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction(xHigherPriorityWoken);
 
         // End the ISR and (possibly) do a context switch
         portEND_SWITCHING_ISR(xHigherPriorityWoken);
@@ -140,25 +136,24 @@ extern "C" {
 }
 
 
-void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLineAbsolute(int x1_,int y1_, int x2_,int y2_) {
     plotLine(
         x1_,
         y1_,
         x2_ - currentX,
-        y2_ - currentY,
-        pps_
+        y2_ - currentY
     );
 }
 
 // TODO: since coordinates are given as floats think about error checking
-void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLine(int x1_,int y1_, int x2_,int y2_) {
     initValues(x1_,y1_, x2_,y2_);
-    pps = pps_;
     start_polling(pps);
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 
-void start_polling(int pps_) {
+void Plotter::start_polling(int pps_) {
+    pps_ = pps_ * savePlottingSpeed / 100;
     Chip_RIT_Disable(LPC_RITIMER);
     uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps_;
     Chip_RIT_EnableCompClear(LPC_RITIMER);
@@ -168,13 +163,12 @@ void start_polling(int pps_) {
     NVIC_EnableIRQ(RITIMER_IRQn);
 }
 
-void stop_polling() {
+void Plotter::stop_polling() {
     NVIC_DisableIRQ(RITIMER_IRQn);
     Chip_RIT_Disable(LPC_RITIMER);
 }
 
-void setPenValue(uint8_t value) {
-	int ticksPerSecond = 1'000'000;
+void Plotter::setPenValue(uint8_t value) {
 	int minDuty = ticksPerSecond / 1000; // 1ms
 	int maxDuty = ticksPerSecond / 500;  // 2ms
 	int temp = value * (maxDuty-minDuty) / 255 + minDuty;
@@ -184,20 +178,17 @@ void setPenValue(uint8_t value) {
 	ITM_print("duty = %d\n", dutycycle);
 }
 
-void initPen() {
+void Plotter::initPen() {
     Chip_SCT_Init(LPC_SCT0);
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
 	#if defined(BOARD_NXP_LPCXPRESSO_1549)
 	Chip_SWM_MovablePortPinAssign(SWM_SCT0_OUT0_O, 0, 10);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
-	int ticksPerSecond = 1'000'000;
-	int frequency = 50;
-	float ms = 1;
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     //LPC_SCT0->CTRL_U |= (SystemCoreClock / ticksPerSecond) << 5;  // set prescaler, SCTimer/PWM clock = 1 MHz
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / frequency - 1;
+    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
     setPenValue(160);
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in all states
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in all st
@@ -207,5 +198,107 @@ void initPen() {
     LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
 }
+
+void Plotter::initLaser() {
+    Chip_SCT_Init(LPC_SCT2);
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
+	#if defined(BOARD_NXP_LPCXPRESSO_1549)
+	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
+	#endif
+	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
+    LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
+    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT1->MATCHREL[0].U = 255; // Set the laser low
+	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in all states
+    LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in all st
+    LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
+    LPC_SCT1->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
+    LPC_SCT1->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
+    LPC_SCT1->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
+    LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
 }
 
+void Plotter::handleGcodeData(const Gcode::Data &data) {
+    switch (data.id) {
+        case Gcode::Id::G1:
+        case Gcode::Id::G28:
+            mDraw_print("%f, %f, %d",
+                        data.data.g1.moveX,
+                        data.data.g1.moveY,
+                        data.data.g1.relative
+                       );
+            if (data.data.g1.relative) {
+                plotLine(
+                    0,0,
+                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                );
+            }
+            else {
+                plotLineAbsolute(
+                    0,0,
+                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                );
+            }
+            break;
+
+        case Gcode::Id::M1:
+            mDraw_print("%u", data.data.m1.penPos);
+            setPenValue(data.data.m1.penPos);
+            break;
+
+        case Gcode::Id::M2:
+            mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
+            savePenUp   = data.data.m2.savePenUp;
+            savePenDown = data.data.m2.savePenDown;
+            break;
+
+        case Gcode::Id::M4:
+            // TODO: create function for setting laser power
+            mDraw_print("%u", data.data.m4.laserPower);
+            break;
+
+        case Gcode::Id::M5:
+            mDraw_print("%d, %d, %u, %u, %u",
+                        data.data.m5.dirX,
+                        data.data.m5.dirY,
+                        data.data.m5.height,
+                        data.data.m5.width,
+                        data.data.m5.speed
+                       );
+
+            saveDirX           = data.data.m5.dirX;
+            saveDirY           = data.data.m5.dirY;
+            savePlottingHeight = data.data.m5.height;
+            savePlottingWidth  = data.data.m5.width;
+            savePlottingSpeed  = data.data.m5.speed;
+            break;
+        case Gcode::Id::M10:
+        	do {
+            char buffer[64];
+            snprintf(buffer, 64, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 10)),
+                        savePlottingWidth,
+                        savePlottingHeight,
+                        saveDirX,
+                        saveDirY,
+                        savePlottingSpeed,
+                        savePenUp,
+                        savePenDown
+                        );
+            USB_send((uint8_t *) buffer, strlen(buffer));
+        	} while(0); // do while 0 so we can create the local buffer variable
+            break;
+
+        case Gcode::Id::M11:
+        	do {
+            char buffer[32];
+            snprintf(buffer, 32, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 11)),
+                    xMotor->readMinLimit(),
+                    xMotor->readMaxLimit(),
+                    yMotor->readMinLimit(),
+                    yMotor->readMaxLimit()
+                        );
+            USB_send((uint8_t *) buffer, strlen(buffer));
+        	} while(0);
+            break;
+    }
+}

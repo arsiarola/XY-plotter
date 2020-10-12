@@ -13,16 +13,19 @@
 #include <string.h>
 
 #include "main.h"
-#include "FreeRTOS.h"
 #include "parser/parser.h"
-#include "task.h"
-#include "heap_lock_monitor.h"
 #include "ITM_write.h"
 #include "printer.h"
 #include "parser/Gcode.h"
 #include "usb/user_vcom.h"
 #include "motor.h"
 #include "plotter.h"
+
+// Freertos API includes
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "task.h"
+#include "heap_lock_monitor.h"
 
 #define READ_FROM_FILE_TEST 0
 
@@ -35,6 +38,7 @@
 static QueueHandle_t queue;
 static Motor* xMotor;
 static Motor* yMotor;
+static Plotter* plotter;
 
 #define BUFFER_SIZE 128
 #define STR_SIZE 64
@@ -73,9 +77,11 @@ static void vTask1(void *pvParameters) {
 }
 
 static void vTask2(void *pvParameters) {
+	vTaskDelay(100); /* wait just in case */
     Gcode::Data data;
-    Plotter::initPen();
-    Plotter::calibrate();
+    plotter->initPen();
+    plotter->initLaser();
+    plotter->calibrate();
 	while (true) {
 		if (xQueueReceive(
                 queue,
@@ -83,43 +89,8 @@ static void vTask2(void *pvParameters) {
                 portMAX_DELAY
              	 ) == pdTRUE ) {
 			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
-            switch (data.id) {
-                case Gcode::Id::G1:
-                case Gcode::Id::G28:
-                    mDraw_print("%f, %f, %d",
-                            data.data.g1.moveX,
-                            data.data.g1.moveY,
-                            data.data.g1.relative
-                            );
-                    Plotter::plotLineAbsolute(
-                            0,0,
-                            (int)data.data.g1.moveX, (int)data.data.g1.moveY,
-							1000
-                        );
-                    break;
-                case Gcode::Id::M1:
-                    mDraw_print("%u", data.data.m1.penPos);
-                    Plotter::setPenValue(data.data.m1.penPos);
-                    break;
-                case Gcode::Id::M2:
-                    mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
-                    break;
-                case Gcode::Id::M4:
-                    mDraw_print("%u", data.data.m4.laserPower);
-                    break;
-                case Gcode::Id::M5:
-                    mDraw_print("%d, %d, %u, %u, %u",
-                            data.data.m5.dirX,
-                            data.data.m5.dirY,
-                            data.data.m5.height,
-                            data.data.m5.width,
-                            data.data.m5.speed
-                            );
-                    break;
-                case Gcode::Id::M10:
-                    break;
-            }
             mDraw_print("\r\n");
+            plotter->handleGcodeData(data);
             USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
@@ -153,12 +124,14 @@ int main() {
 			false
 	});
 
+	plotter = new Plotter(xMotor, yMotor);
+	Plotter::activePlotter = plotter;
+
 
     Chip_RIT_Init(LPC_RITIMER);
     Chip_RIT_Disable(LPC_RITIMER);
     NVIC_SetPriority(RITIMER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY + 1);
     ITM_print("Starting\n");
-    Plotter::setMotors(xMotor, yMotor);
 
     xTaskCreate(cdc_task, "CDC",
 				configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),

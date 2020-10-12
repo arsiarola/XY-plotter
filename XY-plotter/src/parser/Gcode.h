@@ -53,9 +53,9 @@ public:
         id((Id)CREATE_GCODE_ID(letter, number)),
         functionPtr(functionPtr_)
     { }
-    static const char* toFormat(Id id);
-    static array toString(Letter letter, Number number);
-    static array toString(Id id);
+    static const char* toFormat(const Id& id);
+    static array toString(const Letter& letter, const Number& number);
+    static array toString(const Id& id);
     const char* toFormat() { return toFormat(id); }
     array toString() { return toString(letter, number); }
     Id getId() { return id; };

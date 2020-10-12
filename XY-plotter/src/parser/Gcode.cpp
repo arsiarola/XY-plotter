@@ -6,7 +6,7 @@ bool Gcode::callback (const char *str) {
     else                        return false;
 }
 
-const char* Gcode::toFormat(Id id_) {
+const char* Gcode::toFormat(const Id& id_) {
     switch (id_) {
         case G1:
             return
@@ -39,22 +39,31 @@ const char* Gcode::toFormat(Id id_) {
                 "S" "%u"; //S80
 
         case M10:
-            return "M10" ;
+            return
+                "M10 "
+                "XY "
+                "%u %u "       // area, width, height
+                "0.00 0.00 " // undocumented
+                "A%d B%d "     // X and Y direction
+                "H0 "          // undocumented
+                "S%u "         // speed
+                "U%u D%u\r\n"      // penup / down
+                ;
 
         case M11:
-            return "M11";
+            return "M11 %d %d %d %d\r\n";
 
         default:
             return "";
     }
 }
 
-Gcode::array Gcode::toString(Letter letter, Number number) {
+Gcode::array Gcode::toString(const Letter& letter, const Number& number) {
     std::array<char, 4> str;
     std::snprintf(str.data(), 4, "%c%u", letter, number);
     return str;
 }
 
-Gcode::array Gcode::toString(Id id) {
+Gcode::array Gcode::toString(const Id& id) {
     return toString((Letter)GET_LETTER_FROM_ID(id), (Number)GET_NUMBER_FROM_ID(id));
 }

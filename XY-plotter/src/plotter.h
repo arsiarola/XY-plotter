@@ -3,42 +3,62 @@
 #include "motor.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "Gcode.h"
 
-namespace Plotter {
-    void setMotors(Motor* xMotor_, Motor* yMotor_);
+class Plotter {
+public:
+    Plotter(Motor* xMotor, Motor* yMotor);
+    static Plotter* activePlotter; // only one plotter can be used in the interrupt
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
     void bresenham();
+    void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
     void initValues(int x1_, int y1_, int x2_, int y2_);
-    void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_);
-    void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_);
+    void plotLine(int x1_,int y1_, int x2_,int y2_);
+    void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_);
     void initPen();
     void setPenValue(uint8_t value);
+    void initLaser();
+    void handleGcodeData(const Gcode::Data &data);
 
-    extern SemaphoreHandle_t sbRIT;
-    extern Motor* xMotor;
-    extern Motor* yMotor;
-    extern int currentX;
-    extern int currentY;
+private:
+    SemaphoreHandle_t sbRIT;
+    Motor* xMotor = nullptr;
+    Motor* yMotor = nullptr;
+    int currentX;
+    int currentY;
 
-    extern int x1;
-    extern int x2;
-    extern int y1;
-    extern int y2;
-    extern int dx;
-    extern int dy;
-    extern bool xGreater;
-    extern int m_new;
-    extern int slope_error_new;
-    extern int steps;
-    extern int count;
-    extern int x;
-    extern int y;
-    extern int prevX;
-    extern int prevY;
-    extern int pps;
-}
+    // M5 reply
+    bool saveDirX;// TODO: what should the default values be when M10 asks in the beginning
+    bool saveDirY;
+    uint32_t savePlottingWidth = 380;
+    uint32_t savePlottingHeight = 320;
+    uint8_t savePlottingSpeed = 50;  // in percent
+
+    //Pen
+    int ticksPerSecond = 1'000'000;
+	int penFrequency = 50;
+    uint8_t savePenUp = 160;
+    uint8_t savePenDown = 90;
+
+    int x1;
+    int x2;
+    int y1;
+    int y2;
+    int dx;
+    int dy;
+    bool xGreater;
+    int m_new;
+    int slope_error_new;
+    int steps;
+    int count;
+    int x;
+    int y;
+    int prevX;
+    int prevY;
+    int pps = 1000;
+};
 
 #endif /* PLOTTER_H_ */
 

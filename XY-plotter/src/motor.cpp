@@ -1,15 +1,15 @@
 #include "motor.h"
 
 Motor::Motor(
-        DigitalIoPin&& motor,
+        DigitalIoPin&& stepper,
         DigitalIoPin&& direction,
-        DigitalIoPin&& limOrigin,
-        DigitalIoPin&& limMax,
+        DigitalIoPin&& minLimit,
+        DigitalIoPin&& maxLimit,
         bool originDirection
     ) :
-        motor(motor),
+        stepper(stepper),
         direction(direction),
-        limOrigin (limOrigin),
-        limMax(limMax),
+        minLimit (minLimit),
+        maxLimit(maxLimit),
         originDirection(originDirection)
 { }
