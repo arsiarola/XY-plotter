@@ -89,52 +89,8 @@ static void vTask2(void *pvParameters) {
                 portMAX_DELAY
              	 ) == pdTRUE ) {
 			mDraw_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
-            switch (data.id) {
-                case Gcode::Id::G1:
-                case Gcode::Id::G28:
-                    mDraw_print("%f, %f, %d",
-                            data.data.g1.moveX,
-                            data.data.g1.moveY,
-                            data.data.g1.relative
-                            );
-                    if (data.data.g1.relative) {
-                    	 plotter->plotLine(
-							0,0,
-							(int)data.data.g1.moveX, (int)data.data.g1.moveY,
-							1000
-						);
-                    }
-                    else {
-						plotter->plotLineAbsolute(
-								0,0,
-								(int)data.data.g1.moveX, (int)data.data.g1.moveY,
-								1000
-							);
-                    }
-                    break;
-                case Gcode::Id::M1:
-                    mDraw_print("%u", data.data.m1.penPos);
-                    plotter->setPenValue(data.data.m1.penPos);
-                    break;
-                case Gcode::Id::M2:
-                    mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
-                    break;
-                case Gcode::Id::M4:
-                    mDraw_print("%u", data.data.m4.laserPower);
-                    break;
-                case Gcode::Id::M5:
-                    mDraw_print("%d, %d, %u, %u, %u",
-                            data.data.m5.dirX,
-                            data.data.m5.dirY,
-                            data.data.m5.height,
-                            data.data.m5.width,
-                            data.data.m5.speed
-                            );
-                    break;
-                case Gcode::Id::M10:
-                    break;
-            }
             mDraw_print("\r\n");
+            plotter->handleGcodeData(data);
             USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}

@@ -1,6 +1,9 @@
 #include "plotter.h"
 #include "printer.h"
+#include "usb/user_vcom.h"
+
 #include <algorithm>
+#include <string.h>
 
 Plotter* Plotter::activePlotter = nullptr;
 Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
@@ -8,8 +11,11 @@ Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
     yMotor(yMotor)
     {
     	sbRIT = xSemaphoreCreateBinary();
+        saveDirX = !xMotor->getOriginDirection();
+        saveDirY = !xMotor->getOriginDirection();
 }
 
+// TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
     while(
             xMotor->readMaxLimit()    ||
@@ -29,7 +35,7 @@ void Plotter::calibrate() {
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
-	}while (!xRead && !yRead);
+	} while (!xRead && !yRead);
 
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
@@ -130,25 +136,24 @@ extern "C" {
 }
 
 
-void Plotter::plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLineAbsolute(int x1_,int y1_, int x2_,int y2_) {
     plotLine(
         x1_,
         y1_,
         x2_ - currentX,
-        y2_ - currentY,
-        pps_
+        y2_ - currentY
     );
 }
 
 // TODO: since coordinates are given as floats think about error checking
-void Plotter::plotLine(int x1_,int y1_, int x2_,int y2_, int pps_) {
+void Plotter::plotLine(int x1_,int y1_, int x2_,int y2_) {
     initValues(x1_,y1_, x2_,y2_);
-    pps = pps_;
     start_polling(pps);
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 
 void Plotter::start_polling(int pps_) {
+    pps_ = pps_ * savePlottingSpeed / 100;
     Chip_RIT_Disable(LPC_RITIMER);
     uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps_;
     Chip_RIT_EnableCompClear(LPC_RITIMER);
@@ -213,3 +218,87 @@ void Plotter::initLaser() {
     LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
 }
 
+void Plotter::handleGcodeData(const Gcode::Data &data) {
+    switch (data.id) {
+        case Gcode::Id::G1:
+        case Gcode::Id::G28:
+            mDraw_print("%f, %f, %d",
+                        data.data.g1.moveX,
+                        data.data.g1.moveY,
+                        data.data.g1.relative
+                       );
+            if (data.data.g1.relative) {
+                plotLine(
+                    0,0,
+                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                );
+            }
+            else {
+                plotLineAbsolute(
+                    0,0,
+                    (int)data.data.g1.moveX, (int)data.data.g1.moveY
+                );
+            }
+            break;
+
+        case Gcode::Id::M1:
+            mDraw_print("%u", data.data.m1.penPos);
+            setPenValue(data.data.m1.penPos);
+            break;
+
+        case Gcode::Id::M2:
+            mDraw_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
+            savePenUp   = data.data.m2.savePenUp;
+            savePenDown = data.data.m2.savePenDown;
+            break;
+
+        case Gcode::Id::M4:
+            // TODO: create function for setting laser power
+            mDraw_print("%u", data.data.m4.laserPower);
+            break;
+
+        case Gcode::Id::M5:
+            mDraw_print("%d, %d, %u, %u, %u",
+                        data.data.m5.dirX,
+                        data.data.m5.dirY,
+                        data.data.m5.height,
+                        data.data.m5.width,
+                        data.data.m5.speed
+                       );
+
+            saveDirX           = data.data.m5.dirX;
+            saveDirY           = data.data.m5.dirY;
+            savePlottingHeight = data.data.m5.height;
+            savePlottingWidth  = data.data.m5.width;
+            savePlottingSpeed  = data.data.m5.speed;
+            break;
+        case Gcode::Id::M10:
+        	do {
+            char buffer[64];
+            snprintf(buffer, 64, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 10)),
+                        savePlottingWidth,
+                        savePlottingHeight,
+                        saveDirX,
+                        saveDirY,
+                        savePlottingSpeed,
+                        savePenUp,
+                        savePenDown
+                        );
+            USB_send((uint8_t *) buffer, strlen(buffer));
+        	} while(0); // do while 0 so we can create the local buffer variable
+            break;
+
+        case Gcode::Id::M11:
+        	do {
+            char buffer[32];
+            snprintf(buffer, 32, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 11)),
+                    xMotor->readMinLimit(),
+                    xMotor->readMaxLimit(),
+                    yMotor->readMinLimit(),
+                    yMotor->readMaxLimit()
+                        );
+            USB_send((uint8_t *) buffer, strlen(buffer));
+        	} while(0);
+            break;
+    }
+}

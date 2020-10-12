@@ -3,6 +3,7 @@
 #include "motor.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "Gcode.h"
 
 class Plotter {
 public:
@@ -14,11 +15,12 @@ public:
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
     void initValues(int x1_, int y1_, int x2_, int y2_);
-    void plotLine(int x1_,int y1_, int x2_,int y2_, int pps_);
-    void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_, int pps_);
+    void plotLine(int x1_,int y1_, int x2_,int y2_);
+    void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_);
     void initPen();
     void setPenValue(uint8_t value);
     void initLaser();
+    void handleGcodeData(const Gcode::Data &data);
 
 private:
     SemaphoreHandle_t sbRIT;
@@ -27,9 +29,18 @@ private:
     int currentX;
     int currentY;
 
+    // M5 reply
+    bool saveDirX;// TODO: what should the default values be when M10 asks in the beginning
+    bool saveDirY;
+    uint32_t savePlottingWidth = 380;
+    uint32_t savePlottingHeight = 320;
+    uint8_t savePlottingSpeed = 50;  // in percent
+
     //Pen
     int ticksPerSecond = 1'000'000;
 	int penFrequency = 50;
+    uint8_t savePenUp = 160;
+    uint8_t savePenDown = 90;
 
     int x1;
     int x2;
@@ -46,7 +57,7 @@ private:
     int y;
     int prevX;
     int prevY;
-    int pps;
+    int pps = 1000;
 };
 
 #endif /* PLOTTER_H_ */
