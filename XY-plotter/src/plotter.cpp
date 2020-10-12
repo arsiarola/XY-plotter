@@ -45,22 +45,12 @@ void Plotter::calibrate() {
     ITM_print("calibration done\n");
 }
 
-void Plotter::moveIfInArea(Motor* motor, bool step, int currentPos) {
+void Plotter::moveIfInArea(Motor* motor, bool step) {
     if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
         if (currentX >= 0 && currentY >= 0) {
             motor->writeStepper(step);
         }
-
-        // Cannot set pen value inside ISR?
-        /* if (currentPos < 0) { */
-            /* uint8_t tempPenValue = currentPenValue; */
-            /* setPenValue(savePenUp); */
-            /* motor->writeStepper(step); */
-            /* setPenValue(tempPenValue); */
-        /* } */
-        /* else */
-        /*     motor->writeStepper(step); */
     }
 }
 
