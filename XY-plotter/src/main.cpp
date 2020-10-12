@@ -47,6 +47,7 @@ static void vTask1(void *pvParameters) {
     bool endLine = false;
     while (1) {
 		uint32_t received = USB_receive((uint8_t *) str+strLength, STR_SIZE-strLength-1);
+		ITM_print("received = %d", received);
         if (received > 0) {
 			str[strLength+received] = 0; /* make sure we have a null at the end */
             strLength += received;
