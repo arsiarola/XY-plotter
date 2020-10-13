@@ -18,12 +18,52 @@ Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
 
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
+    totalStepX = 0;
+    totalStepY = 0;
     while(
             xMotor->readMaxLimit()    ||
             yMotor->readMaxLimit()    ||
             xMotor->readOriginLimit() ||
             yMotor->readOriginLimit()
      ){}
+    goToOrigin();
+
+	bool xRead;
+	bool yRead;
+
+	xMotor->writeDirection(!xMotor->getOriginDirection());
+	yMotor->writeDirection(!yMotor->getOriginDirection());
+    xMotor->writeStepper(true);
+    yMotor->writeStepper(true);
+    vTaskDelay(1);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
+
+    do {
+        xRead = xMotor->readMaxLimit();
+        yRead = yMotor->readMaxLimit();
+		xMotor->writeStepper(!xRead);
+		yMotor->writeStepper(!yRead);
+		vTaskDelay(1);
+		xMotor->writeStepper(false);
+		yMotor->writeStepper(false);
+        totalStepX += !xRead ? 1 : 0;
+        totalStepY += !yRead ? 1 : 0;
+    } while (!(xRead && yRead));
+
+
+    ITM_print("comeback to origin\n");
+    goToOrigin();
+    currentX = 0;
+    currentY = 0;
+    setXStepInMM(savePlottingWidth);
+    setYStepInMM(savePlottingHeight);
+    ITM_print("calibration done\n");
+    ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
+    ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
+}
+
+void Plotter::goToOrigin() {
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
 	bool xRead;
@@ -38,12 +78,13 @@ void Plotter::calibrate() {
 		yMotor->writeStepper(false);
     } while (!(xRead && yRead));
 
-
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
-    currentX = 0;
-    currentY = 0;
-    ITM_print("calibration done\n");
+    xMotor->writeStepper(true);
+    yMotor->writeStepper(true);
+    vTaskDelay(1);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
 }
 
 void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
@@ -51,8 +92,8 @@ void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
         if (currentX >= 0 && currentY >= 0) {
             motor->writeStepper(step);
-            currentPos += motor->isOriginDirection() ? -step : step;
         }
+        currentPos += motor->isOriginDirection() ? -step : step;
     }
 }
 
@@ -61,64 +102,59 @@ void Plotter::bresenham() {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
-  
-    int xStep = x != prevX ? 1 : 0;
-    int yStep = y != prevY ? 1 : 0;
+
+    int xStep = m_x != m_prevX ? 1 : 0;
+    int yStep = m_y != m_prevY ? 1 : 0;
     moveIfInArea(xMotor, xStep, currentX);
     moveIfInArea(yMotor, yStep, currentY);
+
+    m_prevX = m_x;
+    m_prevY = m_y;
+    if (m_D > 0) {
+        m_xGreater ? ++m_y : ++m_x;
+        m_D -= 2 * (m_xGreater ? m_dx : m_dy);
+    }
+    m_xGreater ? ++m_x : ++m_y;
+    m_D += 2 * (m_xGreater ? m_dy : m_dx);
+
     xMotor->writeStepper(false);
     yMotor->writeStepper(false);
-    /* currentX += xMotor->isOriginDirection() ? -xStep : xStep; */
-    /* currentY += yMotor->isOriginDirection() ? -yStep : yStep; */
-
-
-    prevX = x;
-    prevY = y;
-    if (D > 0) {
-        xGreater ? ++y : ++x;
-        D -= 2 * (xGreater ? dx : dy);
-    }
-    xGreater ? ++x : ++y;
-    D += 2 * (xGreater ? dy : dx);
-   ++count;
+   ++m_count;
 }
 
-void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
+void Plotter::initValues(int x1_,int y1_, int x2_,int y2_) {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
     }
     xMotor->writeDirection(x2_ > x1_);
     yMotor->writeDirection(y2_ > y1_);
-    x1              = x1_ < x2_ ? x1_ : x2_;
-    x2              = x1_ > x2_ ? x1_ : x2_;
-    y1              = y1_ < y2_ ? y1_ : y2_;
-    y2              = y1_ > y2_ ? y1_ : y2_;
-    dx              = abs(x2-x1);
-    dy              = abs(y2-y1);
-    xGreater        = (dx > dy);
-    D               = xGreater ? 2*dy - dx : 2*dx - dy;
-    prevX           = x1;
-    prevY           = y1;
-    steps           = std::max(dx, dy);
-    count           = 0;
-    x               = x1;
-    y               = y1;
-    prevX           = x;
-    prevY           = y;
-    ITM_print("%d,%d    %d,%d\n", x1_,y1_, x2_,y2_);
+    int x1            = x1_ < x2_ ? x1_ : x2_;
+    int x2            = x1_ > x2_ ? x1_ : x2_;
+    int y1            = y1_ < y2_ ? y1_ : y2_;
+    int y2            = y1_ > y2_ ? y1_ : y2_;
+    m_dx              = abs(x2-x1);
+    m_dy              = abs(y2-y1);
+    m_xGreater        = (m_dx > m_dy);
+    m_D               = m_xGreater ? 2*m_dy - m_dx : 2*m_dx - m_dy;
+    m_steps           = std::max(m_dx, m_dy);
+    m_count           = 0;
+    m_prevX           = x1;
+    m_prevY           = y1;
+    m_x               = x1;
+    m_y               = y1;
     ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
 void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
     bresenham();
-    if (count > steps) {
+    if (m_count > m_steps) {
         ITM_print("currentX = %d, currentY = %d\n", currentX, currentY);
         stop_polling();
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
     }
     else {
-        start_polling(pps);
+        start_polling(m_pps);
     }
 }
 
@@ -134,26 +170,26 @@ extern "C" {
 }
 
 
-void Plotter::plotLineAbsolute(int x1_,int y1_, int x2_,int y2_) {
+void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
-        x1_,
-        y1_,
-        x2_ - currentX,
-        y2_ - currentY
+        x1,
+        y1,
+        x2 - (currentX/xStepMM),
+        y2 - (currentY/xStepMM)
     );
 }
 
 // TODO: since coordinates are given as floats think about error checking
-void Plotter::plotLine(int x1_,int y1_, int x2_,int y2_) {
-    initValues(x1_,y1_, x2_,y2_);
-    start_polling(pps);
+void Plotter::plotLine(float x1,float y1, float x2,float y2) {
+    initValues(round(x1),round(y1), round(x2*xStepMM),round(y2*xStepMM));
+    start_polling(m_pps);
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 
-void Plotter::start_polling(int pps_) {
-    pps_ = pps_ * savePlottingSpeed / 100;
+void Plotter::start_polling(int pps) {
+    pps = pps * savePlottingSpeed / 100;
     Chip_RIT_Disable(LPC_RITIMER);
-    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps_;
+    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
     Chip_RIT_EnableCompClear(LPC_RITIMER);
     Chip_RIT_SetCounter(LPC_RITIMER, 0);
     Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
@@ -180,7 +216,6 @@ void Plotter::initPen() {
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
-    //LPC_SCT0->CTRL_U |= (SystemCoreClock / ticksPerSecond) << 5;  // set prescaler, SCTimer/PWM clock = 1 MHz
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
     setPenValue(160);
@@ -224,13 +259,13 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             if (data.data.g1.relative) {
                 plotLine(
                     0,0,
-                    (int)round(data.data.g1.moveX), (int)round(data.data.g1.moveY)
+                    data.data.g1.moveX, data.data.g1.moveY
                 );
             }
             else {
                 plotLineAbsolute(
                     0,0,
-                    (int)round(data.data.g1.moveX), (int)round(data.data.g1.moveY)
+                    data.data.g1.moveX, data.data.g1.moveY
                 );
             }
             break;
@@ -265,6 +300,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             savePlottingHeight = data.data.m5.height;
             savePlottingWidth  = data.data.m5.width;
             savePlottingSpeed  = data.data.m5.speed;
+            calibrate();
             break;
         case Gcode::Id::M10:
         	do {

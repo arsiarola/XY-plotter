@@ -128,8 +128,8 @@ bool m5ExtractData(const char *str) {
         ITM_print("X direction: %d, Y direction: %d, canvas dimensions: %d x %d, plotting speed: %d\n",
                   data.data.m5.dirX,
                   data.data.m5.dirY,
-                  data.data.m5.height,
                   data.data.m5.width,
+                  data.data.m5.height,
                   data.data.m5.speed);
         return true;
     }
