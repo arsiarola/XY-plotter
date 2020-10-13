@@ -24,6 +24,10 @@
 #define limYMaxPort   0
 #define limYMaxPin    9
 
+/* Plotter setting */
+#define mapWidth    340
+#define mapHeight   310
+
 void prvSetupHardware(void);
 #endif /* MAIN_H_ */
 

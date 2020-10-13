@@ -61,6 +61,7 @@ void Plotter::bresenham() {
         ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
         return;
     }
+  
     int xStep = x != prevX ? 1 : 0;
     int yStep = y != prevY ? 1 : 0;
     moveIfInArea(xMotor, xStep, currentX);
@@ -69,6 +70,7 @@ void Plotter::bresenham() {
     yMotor->writeStepper(false);
     /* currentX += xMotor->isOriginDirection() ? -xStep : xStep; */
     /* currentY += yMotor->isOriginDirection() ? -yStep : yStep; */
+
 
     prevX = x;
     prevY = y;
@@ -182,8 +184,8 @@ void Plotter::initPen() {
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
     setPenValue(160);
-	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in all states
-    LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in all st
+	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
+    LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT0->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
     LPC_SCT0->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
     LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
@@ -201,8 +203,8 @@ void Plotter::initLaser() {
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT1->MATCHREL[0].U = 255; // Set the laser low
-	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in all states
-    LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in all st
+	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
+    LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
     LPC_SCT1->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
     LPC_SCT1->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
