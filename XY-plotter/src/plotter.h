@@ -12,7 +12,7 @@ public:
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
-    void moveIfInArea(Motor* motor, bool step);
+    void moveIfInArea(Motor* motor, bool step, int& currentPos);
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
     void initValues      (int x1_,int y1_, int x2_,int y2_);

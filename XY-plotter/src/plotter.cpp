@@ -46,11 +46,12 @@ void Plotter::calibrate() {
     ITM_print("calibration done\n");
 }
 
-void Plotter::moveIfInArea(Motor* motor, bool step) {
+void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
     if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
         if (currentX >= 0 && currentY >= 0) {
             motor->writeStepper(step);
+            currentPos += motor->isOriginDirection() ? -step : step;
         }
     }
 }
@@ -62,12 +63,12 @@ void Plotter::bresenham() {
     }
     int xStep = x != prevX ? 1 : 0;
     int yStep = y != prevY ? 1 : 0;
-    moveIfInArea(xMotor, xStep);
-    moveIfInArea(yMotor, yStep);
+    moveIfInArea(xMotor, xStep, currentX);
+    moveIfInArea(yMotor, yStep, currentY);
     xMotor->writeStepper(false);
     yMotor->writeStepper(false);
-    currentX += xMotor->isOriginDirection() ? -xStep : xStep;
-    currentY += yMotor->isOriginDirection() ? -yStep : yStep;
+    /* currentX += xMotor->isOriginDirection() ? -xStep : xStep; */
+    /* currentY += yMotor->isOriginDirection() ? -yStep : yStep; */
 
     prevX = x;
     prevY = y;
