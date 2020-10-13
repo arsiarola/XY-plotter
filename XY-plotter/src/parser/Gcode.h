@@ -5,7 +5,7 @@
 #include <array>
 
 // have mask just in case we use bigger value in parameter and for storing
-#define CREATE_GCODE_ID(letter, number) (((letter << 8) | (number)) & 0xFFFF)
+#define CREATE_GCODE_ID(letter, number) ((Gcode::Id)(((letter << 8) | (number)) & 0xFFFF))
 #define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
 #define GET_NUMBER_FROM_ID(id) ((id)      & 0xFF)
 
@@ -50,7 +50,7 @@ public:
     Gcode(Letter letter_, Number number_, bool (*functionPtr_)(const char *str) = nullptr)  :
         letter(letter_),
         number(number_),
-        id((Id)CREATE_GCODE_ID(letter, number)),
+        id(CREATE_GCODE_ID(letter, number)),
         functionPtr(functionPtr_)
     { }
     static const char* toFormat(const Id& id);

@@ -12,16 +12,16 @@ public:
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
-    void moveIfInArea(Motor* motor, bool step);
+    void moveIfInArea(Motor* motor, bool step, int& currentPos);
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
-    void initValues(int x1_, int y1_, int x2_, int y2_);
-    void plotLine(int x1_,int y1_, int x2_,int y2_);
+    void initValues      (int x1_,int y1_, int x2_,int y2_);
+    void plotLine        (int x1_,int y1_, int x2_,int y2_);
     void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_);
     void initPen();
     void setPenValue(uint8_t value);
     void initLaser();
-    void handleGcodeData(const Gcode::Data &data);
+    void handleGcodeData(const Gcode::Data& data);
 
 
     inline int getTotalStepX() { return totalStepX; };
@@ -48,7 +48,7 @@ private:
     uint32_t savePlottingHeight = 320;
     uint8_t savePlottingSpeed = 100;  // in percent
 
-    //Pen
+    //Pen / Laser
     int ticksPerSecond = 1'000'000;
 	int penFrequency = 50;
 	int minDuty = ticksPerSecond / 1000; // 1ms
@@ -57,6 +57,7 @@ private:
     uint8_t savePenDown = 90;
     uint8_t currentPenValue;
 
+    // Bresenham
     int x1;
     int x2;
     int y1;
@@ -64,8 +65,7 @@ private:
     int dx;
     int dy;
     bool xGreater;
-    int m_new;
-    int slope_error_new;
+    int D;
     int steps;
     int count;
     int x;

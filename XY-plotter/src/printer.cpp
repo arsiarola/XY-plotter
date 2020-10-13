@@ -18,18 +18,19 @@ LpcUartConfig cfg1 = {
 };
 
 
-LpcUart *mDraw_uart = new LpcUart(cfg1); // Global mdraw communication variable
+namespace Printer {
+    LpcUart *debug_uart = new LpcUart(cfg1); // Global mdraw communication variable
 
-int uart_print(const char *str) {
-	return mDraw_uart->write(str);
+    int uart_print(const char *str) {
+        return Printer::debug_uart->write(str);
+    }
+
+    int arg_print(int (*callback) (const char *), const char *format, ...) {
+        char buffer [ARG_BUFFER_SIZE];
+        va_list argptr;
+        va_start(argptr, format);
+        vsnprintf (buffer, ARG_BUFFER_SIZE, format, argptr);
+        va_end(argptr);
+        return callback(buffer);
+    }
 }
-
-int arg_print(int (*callback) (const char *), const char *format, ...) {
-	char buffer [ARG_BUFFER_SIZE];
-	va_list argptr;
-	va_start(argptr, format);
-	vsnprintf (buffer, ARG_BUFFER_SIZE, format, argptr);
-	va_end(argptr);
-	return callback(buffer);
-}
-
