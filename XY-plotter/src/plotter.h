@@ -46,6 +46,7 @@ private:
     uint8_t savePenDown = 90;
     uint8_t currentPenValue;
 
+    // Bresenham
     int x1;
     int x2;
     int y1;
@@ -53,8 +54,7 @@ private:
     int dx;
     int dy;
     bool xGreater;
-    int m_new;
-    int slope_error_new;
+    int D;
     int steps;
     int count;
     int x;

@@ -71,23 +71,13 @@ void Plotter::bresenham() {
 
     prevX = x;
     prevY = y;
-
-    slope_error_new += m_new;
-    if (xGreater) {
-        ++x;
-        if (slope_error_new >= 0) {
-            slope_error_new -= 2 * dx;
-            ++y;
-        }
+    if (D > 0) {
+        xGreater ? ++y : ++x;
+        D -= 2 * (xGreater ? dx : dy);
     }
-    else {
-        ++y;
-        if (slope_error_new >= 0) {
-            slope_error_new -= 2 * dy;
-            ++x;
-        }
-    }
-    ++count;
+    xGreater ? ++x : ++y;
+    D += 2 * (xGreater ? dy : dx);
+   ++count;
 }
 
 void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
@@ -104,8 +94,7 @@ void Plotter::initValues(int x1_, int y1_, int x2_, int y2_) {
     dx              = abs(x2-x1);
     dy              = abs(y2-y1);
     xGreater        = (dx > dy);
-    m_new           = xGreater ? 2 * dy : 2 * dx;
-    slope_error_new = m_new - (xGreater ? dx : dy);
+    D               = xGreater ? 2*dy - dx : 2*dx - dy;
     prevX           = x1;
     prevY           = y1;
     steps           = std::max(dx, dy);
