@@ -15,13 +15,13 @@ public:
     void moveIfInArea(Motor* motor, bool step);
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
-    void initValues(int x1_, int y1_, int x2_, int y2_);
-    void plotLine(int x1_,int y1_, int x2_,int y2_);
+    void initValues      (int x1_,int y1_, int x2_,int y2_);
+    void plotLine        (int x1_,int y1_, int x2_,int y2_);
     void plotLineAbsolute(int x1_,int y1_, int x2_,int y2_);
     void initPen();
     void setPenValue(uint8_t value);
     void initLaser();
-    void handleGcodeData(const Gcode::Data &data);
+    void handleGcodeData(const Gcode::Data& data);
 
 private:
     SemaphoreHandle_t sbRIT;
@@ -37,7 +37,7 @@ private:
     uint32_t savePlottingHeight = 320;
     uint8_t savePlottingSpeed = 100;  // in percent
 
-    //Pen
+    //Pen / Laser
     int ticksPerSecond = 1'000'000;
 	int penFrequency = 50;
 	int minDuty = ticksPerSecond / 1000; // 1ms

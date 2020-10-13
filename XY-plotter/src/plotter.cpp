@@ -266,7 +266,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
         case Gcode::Id::M10:
         	do {
             char buffer[64];
-            snprintf(buffer, 64, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 10)),
+            snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),
                         savePlottingWidth,
                         savePlottingHeight,
                         saveDirX,
@@ -282,7 +282,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
         case Gcode::Id::M11:
         	do {
             char buffer[32];
-            snprintf(buffer, 32, Gcode::toFormat((Gcode::Id)CREATE_GCODE_ID('M', 11)),
+            snprintf(buffer, 32, Gcode::toFormat(CREATE_GCODE_ID('M', 11)),
                     xMotor->readMinLimit(),
                     xMotor->readMaxLimit(),
                     yMotor->readMinLimit(),
