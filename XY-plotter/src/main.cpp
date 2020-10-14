@@ -36,14 +36,26 @@
 
 /* VARIABLES */
 static QueueHandle_t queue;
+static SemaphoreHandle_t* initVariablesSemaphore;
+static TaskHandle_t* initVariablesHandle;
 static Motor* xMotor;
 static Motor* yMotor;
 static Plotter* plotter;
+
+static DigitalIoPin* lim1;
+static DigitalIoPin* lim2;
+static DigitalIoPin* lim3;
+static DigitalIoPin* lim4;
+static DigitalIoPin* xStep;
+static DigitalIoPin* xDirection;
+static DigitalIoPin* yStep;
+static DigitalIoPin* yDirection;
 
 #define BUFFER_SIZE 128
 #define STR_SIZE 64
 static void vTask1(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
+    xSemaphoreTake(*initVariablesSemaphore, portMAX_DELAY);
     char buffer[BUFFER_SIZE] = "";
     char str[STR_SIZE] = "";
     int bufferLength = 0;
@@ -77,6 +89,7 @@ static void vTask1(void *pvParameters) {
 
 static void vTask2(void *pvParameters) {
 	vTaskDelay(100); /* wait just in case */
+    xSemaphoreTake(initVariables, portMAX_DELAY);
     Gcode::Data data;
     plotter->initPen();
     plotter->initLaser();
@@ -95,6 +108,39 @@ static void vTask2(void *pvParameters) {
 	}
 }
 
+static void vTask3(void *pvParameters) {
+	queue = xQueueCreate(5, sizeof(Gcode::Data));
+    lim1 = new DigitalIoPin( 0, 9,  DigitalIoPin::pullup, true);
+    lim2 = new DigitalIoPin( 0, 29, DigitalIoPin::pullup, true);
+    lim3 = new DigitalIoPin( 0, 0,  DigitalIoPin::pullup, true);
+    lim4 = new DigitalIoPin( 1, 3,  DigitalIoPin::pullup, true);
+
+    xStep = new DigitalIoPin( 0, 24, DigitalIoPin::output, true);
+    xDirection = new DigitalIoPin( 1, 0,  DigitalIoPin::output, true);
+
+    yStep = new DigitalIoPin( 0, 27, DigitalIoPin::output, true);
+    yDirection = new DigitalIoPin( 0, 28, DigitalIoPin::output, true);
+    xDirection->write(CLOCKWISE);
+    // TODO check the limit switches here which corresponds to which axis
+    while (lim1->read() || lim2->read() ||  lim3->read() ||  lim4->read()) {
+        xStep->write(true);
+        vTaskDelay(1);
+        xStep->write(false);
+    }
+	xMotor = new Motor({
+			CLOCKWISE
+	});
+
+	yMotor = new Motor({
+			CLOCKWISE
+	});
+
+	plotter = new Plotter(xMotor, yMotor);
+	Plotter::activePlotter = plotter;
+    vTaskSuspend(*initVariablesHandle);
+
+}
+
 extern "C" {
     void vConfigureTimerForRunTimeStats( void ) {
         Chip_SCT_Init(LPC_SCTSMALL1);
@@ -104,28 +150,10 @@ extern "C" {
 }
 
 int main() {
-	queue = xQueueCreate(5, sizeof(Gcode::Data));
     ITM_init();
     prvSetupHardware();
-	xMotor = new Motor({
-			{ 0, 24, DigitalIoPin::output, true},
-			{ 1, 0,  DigitalIoPin::output, true},
-			{ 0, 9,  DigitalIoPin::pullup, true},
-			{ 0, 29, DigitalIoPin::pullup, true},
-			false
-	});
-
-	yMotor = new Motor({
-			{ 0, 27, DigitalIoPin::output, true},
-			{ 0, 28, DigitalIoPin::output, true},
-			{ 0, 0,  DigitalIoPin::pullup, true},
-			{ 1, 3,  DigitalIoPin::pullup, true},
-			false
-	});
-
-	plotter = new Plotter(xMotor, yMotor);
-	Plotter::activePlotter = plotter;
-
+    initVariablesSemaphore = new SemaphoreHandle_t;
+    initVariablesHandle = new TaskHandle_t;
 
     Chip_RIT_Init(LPC_RITIMER);
     Chip_RIT_Disable(LPC_RITIMER);
@@ -142,6 +170,10 @@ int main() {
     xTaskCreate(vTask2, "motor",
                 configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 2UL),
                 (TaskHandle_t *) NULL);
+
+    xTaskCreate(vTask3, "initVariables",
+                configMINIMAL_STACK_SIZE+512, NULL, (tskIDLE_PRIORITY + 2UL),
+                initVariablesHandle);
 
     vTaskStartScheduler();
 
@@ -162,8 +194,10 @@ int main() {
         fclose(fp);
     }
 #endif /* READ_FROM_FILE_TEST */
-
-    return 0;
+    delete xMotor;
+    delete yMotor;
+    delete plotter;
+    return 1;
 }
 
 /* Sets up system hardware */

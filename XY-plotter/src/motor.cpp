@@ -1,10 +1,10 @@
 #include "motor.h"
 
 Motor::Motor(
-        DigitalIoPin&& stepper,
-        DigitalIoPin&& direction,
-        DigitalIoPin&& minLimit,
-        DigitalIoPin&& maxLimit,
+        DigitalIoPin* stepper,
+        DigitalIoPin* direction,
+        DigitalIoPin* minLimit,
+        DigitalIoPin* maxLimit,
         bool originDirection
     ) :
         stepper(stepper),

@@ -33,35 +33,32 @@ void Plotter::calibrate() {
             yMotor->readMaxLimit()    ||
             xMotor->readOriginLimit() ||
             yMotor->readOriginLimit()
-     ){}
+     );
+
     goToOrigin();
 
-	bool xRead;
-	bool yRead;
+	bool xStep;
+	bool yStep;
 
-	xMotor->writeDirection(!xMotor->getOriginDirection());
-	yMotor->writeDirection(!yMotor->getOriginDirection());
-    xMotor->writeStepper(true);
-    yMotor->writeStepper(true);
-    vTaskDelay(1);
-    xMotor->writeStepper(false);
-    yMotor->writeStepper(false);
-
+    int i = 0;
     do {
-        xRead = xMotor->readMaxLimit();
-        yRead = yMotor->readMaxLimit();
-		xMotor->writeStepper(!xRead);
-		yMotor->writeStepper(!yRead);
+        ITM_print("%d: xStep=%\n", i, xStep);
+        xStep = !xMotor->readMaxLimit();
+        yStep = !yMotor->readMaxLimit();
+		xMotor->writeStepper(xStep);
+		yMotor->writeStepper(yStep);
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
-        totalStepX += !xRead ? 1 : 0;
-        totalStepY += !yRead ? 1 : 0;
-    } while (!(xRead && yRead));
+        totalStepX += xStep ? 1 : 0;
+        totalStepY += yStep ? 1 : 0;
+        ITM_print("%d: xStep=%\n", i++, xStep);
+    } while (xStep || yStep);
 
 
     ITM_print("comeback to origin\n");
     goToOrigin();
+
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
@@ -79,32 +76,27 @@ void Plotter::calibrate() {
 void Plotter::goToOrigin() {
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
-	bool xRead;
-	bool yRead;
+	bool xStep;
+	bool yStep;
+
     do {
-        xRead = xMotor->readOriginLimit();
-        yRead = yMotor->readOriginLimit();
-		xMotor->writeStepper(!xRead);
-		yMotor->writeStepper(!yRead);
+        xStep = !xMotor->readOriginLimit();
+        yStep = !yMotor->readOriginLimit();
+		xMotor->writeStepper(xStep);
+		yMotor->writeStepper(yStep);
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
-    } while (!(xRead && yRead));
+    } while (xStep || yStep);
 
-    // origin is one off from hitting limit switch
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
-    xMotor->writeStepper(true);
-    yMotor->writeStepper(true);
-    vTaskDelay(1);
-    xMotor->writeStepper(false);
-    yMotor->writeStepper(false);
 }
 
-void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
+void Plotter::moveIfInArea(Motor* motor, int step, int& currentPos) {
     if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
-        if ( currentPos > 0) {
+        if ( currentPos >= 0) {
             motor->writeStepper(step);
         }
         currentPos += motor->isOriginDirection() ? -step : step;
@@ -144,23 +136,23 @@ void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
     }
     xMotor->writeDirection(x2_ > x1_);
     yMotor->writeDirection(y2_ > y1_);
-    int x1            = x1_ < x2_ ? x1_ : x2_;
-    int x2            = x1_ > x2_ ? x1_ : x2_;
-    int y1            = y1_ < y2_ ? y1_ : y2_;
-    int y2            = y1_ > y2_ ? y1_ : y2_;
-    m_dx              = abs(x2-x1);
-    m_dy              = abs(y2-y1);
-    m_xGreater        = (m_dx > m_dy);
-    m_D               = m_xGreater ? 2*m_dy - m_dx : 2*m_dx - m_dy;
-    m_prevX           = x1;
-    m_prevY           = y1;
-    m_x               = x1;
-    m_y               = y1;
+    int x1      = x1_ < x2_ ? x1_ : x2_;
+    int x2      = x1_ > x2_ ? x1_ : x2_;
+    int y1      = y1_ < y2_ ? y1_ : y2_;
+    int y2      = y1_ > y2_ ? y1_ : y2_;
+    m_dx        = abs(x2-x1);
+    m_dy        = abs(y2-y1);
+    m_xGreater  = (m_dx > m_dy);
+    m_D         = m_xGreater ? 2*m_dy - m_dx : 2*m_dx - m_dy;
+    m_prevX     = x1;
+    m_prevY     = y1;
+    m_x         = x1;
+    m_y         = y1;
 
-    m_steps           = std::max(m_dx, m_dy);
-    m_count           = 0;
-    m_threshold       = m_steps * ACCEL_THRESHOLD_PERCENT / 100 ;
-    ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
+    m_steps     = std::max(m_dx, m_dy);
+    m_count     = 0;
+    m_threshold = m_steps * ACCEL_THRESHOLD_PERCENT / 100 ;
+    ITM_print("%d,%d %d,%d\n", x1,y1, x2,y2);
 }
 
 int Plotter::calculatePps() {
@@ -181,20 +173,22 @@ int Plotter::calculatePps() {
 
 void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
 	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
-	bool maxX = xMotor->readMaxLimit() && (!xMotor->isOriginDirection());
+	bool maxX = xMotor->readMaxLimit()    && (!xMotor->isOriginDirection());
 	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
-	bool maxY = yMotor->readMaxLimit() && (!yMotor->isOriginDirection());
-	if (minX || maxX || minY || maxY) {
+	bool maxY = yMotor->readMaxLimit()    && (!yMotor->isOriginDirection());
+	if (minX || maxX || minY || maxY || m_count > m_steps) {
+        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
         stop_polling();
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
 	}
-    bresenham();
-    if (m_count > m_steps) {
-        stop_polling();
-        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-    }
-   else {
+
+    else {
+        bresenham();
+#if USE_ACCEL == 1
        start_polling(calculatePps());
+#else
+       start_polling(m_pps);
+#endif /*USE_ACCEL*/
    }
 }
 
@@ -240,7 +234,11 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
         round(x2*xStepMM),
         round(y2*yStepMM)
     );
-    start_polling(calculatePps());
+#if USE_ACCEL == 1
+       start_polling(calculatePps());
+#else
+       start_polling(m_pps);
+#endif /*USE_ACCEL*/
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 
