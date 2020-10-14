@@ -28,12 +28,12 @@ void Plotter::resetStepValues() {
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
     resetStepValues();
-    while(
-            xMotor->readMaxLimit()    ||
-            yMotor->readMaxLimit()    ||
-            xMotor->readOriginLimit() ||
-            yMotor->readOriginLimit()
-     );
+//    while(
+//            xMotor->readMaxLimit()    ||
+//            yMotor->readMaxLimit()    ||
+//            xMotor->readOriginLimit() ||
+//            yMotor->readOriginLimit()
+//     );
 
     goToOrigin();
 
@@ -56,7 +56,6 @@ void Plotter::calibrate() {
     } while (xStep || yStep);
 
 
-    ITM_print("comeback to origin\n");
     goToOrigin();
 
     if(totalStepX>totalStepY)
@@ -91,6 +90,8 @@ void Plotter::goToOrigin() {
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
+    ITM_print("comeback to origin\n");
+
 }
 
 void Plotter::moveIfInArea(Motor* motor, int step, int& currentPos) {
