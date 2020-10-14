@@ -42,7 +42,6 @@ void Plotter::calibrate() {
 
     int i = 0;
     do {
-        ITM_print("%d: xStep=%\n", i, xStep);
         xStep = !xMotor->readMaxLimit();
         yStep = !yMotor->readMaxLimit();
 		xMotor->writeStepper(xStep);
@@ -52,7 +51,6 @@ void Plotter::calibrate() {
 		yMotor->writeStepper(false);
         totalStepX += xStep ? 1 : 0;
         totalStepY += yStep ? 1 : 0;
-        ITM_print("%d: xStep=%\n", i++, xStep);
     } while (xStep || yStep);
 
 

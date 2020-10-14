@@ -61,7 +61,6 @@ static void vTask1(void *pvParameters) {
 	pdTRUE,
 	portMAX_DELAY) & (BIT_0)) != BIT_0) {
 	}
-	ITM_print("task1\n");
 	char buffer[BUFFER_SIZE] = "";
 	char str[STR_SIZE] = "";
 	int bufferLength = 0;
@@ -105,7 +104,6 @@ static void vTask2(void *pvParameters) {
 	pdTRUE,
 	portMAX_DELAY) & (BIT_0)) != BIT_0) {
 	}
-	ITM_print("task2\n");
 	Gcode::Data data;
 	plotter->initPen();
 	plotter->initLaser();
