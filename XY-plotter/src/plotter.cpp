@@ -72,6 +72,7 @@ void Plotter::calibrate() {
     ITM_print("calibration done\n");
     ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
     ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
+    status |= CALIBRATED;
 }
 
 // Simple function for calibrating, should not be used for GCODES
@@ -103,7 +104,7 @@ void Plotter::goToOrigin() {
 void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
     if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
-        if (currentX >= 0 && currentY >= 0) {
+        if ( currentX >= 0 && currentY >= 0) {
             motor->writeStepper(step);
         }
         currentPos += motor->isOriginDirection() ? -step : step;
@@ -175,7 +176,6 @@ int Plotter::calculatePps() {
 
     // Set to minimum value pps not in bounds
     if (pps <= 0) pps = m_pps * ACCEL_THRESHOLD_PERCENT / 100;
-    ITM_print("pps = %d\n", pps);
     return pps;
 }
 
@@ -211,11 +211,24 @@ void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     );
 }
 
+void Plotter::plotLineRelative(float x2,float y2) {
+    plotLine(
+        ((float)currentX/xStepMM),
+        ((float)currentY/yStepMM),
+        ((float)currentX/xStepMM) + x2,
+        ((float)currentY/yStepMM) + y2
+    );
+}
+
 // TODO: since coordinates are given as floats think about error checking
 void Plotter::plotLine(float x1,float y1, float x2,float y2) {
+    if ((status & CALIBRATED) == 0) {
+        ITM_print("Plotter not calibrated exiting plotting\n");
+        return;
+    }
     initBresenhamValues(
-        round(x1),
-        round(y1),
+        round(x1*xStepMM),
+        round(y1*yStepMM),
         round(x2*xStepMM),
         round(y2*yStepMM)
     );
@@ -240,8 +253,12 @@ void Plotter::stop_polling() {
 }
 
 void Plotter::setPenValue(uint8_t value) {
-    LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
-    LPC_SCT0->OUT[0].SET = 1;
+    if (status & PEN_INITIALISED) {
+        LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
+        LPC_SCT0->OUT[0].SET = 1;
+    }
+    else
+        ITM_print("Cannot change pen value, not initialised\n");
 }
 
 void Plotter::initPen() {
@@ -262,6 +279,7 @@ void Plotter::initPen() {
     LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
     LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
+    status |= PEN_INITIALISED;
 }
 
 void Plotter::initLaser() {
@@ -281,6 +299,7 @@ void Plotter::initLaser() {
     LPC_SCT1->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
     LPC_SCT1->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
+    status |= LASER_INITIALISED;
 }
 
 void Plotter::handleGcodeData(const Gcode::Data &data) {
@@ -293,8 +312,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
                         data.data.g1.relative
                        );
             if (data.data.g1.relative) {
-                plotLine(
-                    0,0,
+                plotLineRelative(
                     data.data.g1.moveX, data.data.g1.moveY
                 );
             }

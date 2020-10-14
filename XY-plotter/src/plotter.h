@@ -8,6 +8,10 @@
 #define  ACCEL_THRESHOLD_PERCENT 10
 #define DEFAULT_PPS 500
 
+#define PEN_INITIALISED   (1 << 0)
+#define LASER_INITIALISED (1 << 1)
+#define CALIBRATED        (1 << 2)
+
 class Plotter {
 public:
     Plotter(Motor* xMotor, Motor* yMotor);
@@ -22,6 +26,7 @@ public:
     void initBresenhamValues      (int x1_,int y1_, int x2_,int y2_);
     void plotLine        (float x1,float y1, float x2,float y2);
     void plotLineAbsolute(float x1,float y1, float x2,float y2);
+    void plotLineRelative(                   float x2,float y2);
     void initPen();
     void setPenValue(uint8_t value);
     void initLaser();
@@ -37,6 +42,7 @@ public:
     void setYStepInMM(int height) { yStepMM = (float) totalStepY / height; }
 
 private:
+    uint32_t status = 0;
     SemaphoreHandle_t sbRIT;
     Motor* xMotor = nullptr;
     Motor* yMotor = nullptr;
