@@ -68,6 +68,7 @@ void Plotter::calibrate() {
     ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
 }
 
+// Simple function for calibrating, should not be used for GCODES
 void Plotter::goToOrigin() {
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
@@ -83,6 +84,7 @@ void Plotter::goToOrigin() {
 		yMotor->writeStepper(false);
     } while (!(xRead && yRead));
 
+    // origin is one off from hitting limit switch
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
     xMotor->writeStepper(true);
@@ -127,7 +129,8 @@ void Plotter::bresenham() {
    ++m_count;
 }
 
-void Plotter::initValues(int x1_,int y1_, int x2_,int y2_) {
+
+void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
     if (xMotor == nullptr || yMotor == nullptr) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
@@ -142,12 +145,14 @@ void Plotter::initValues(int x1_,int y1_, int x2_,int y2_) {
     m_dy              = abs(y2-y1);
     m_xGreater        = (m_dx > m_dy);
     m_D               = m_xGreater ? 2*m_dy - m_dx : 2*m_dx - m_dy;
-    m_steps           = std::max(m_dx, m_dy);
-    m_count           = 0;
     m_prevX           = x1;
     m_prevY           = y1;
     m_x               = x1;
     m_y               = y1;
+
+    m_steps           = std::max(m_dx, m_dy);
+    m_count           = 0;
+    m_threshold       = m_steps * ACCEL_THRESHOLD_PERCENT / 100 ;
     ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
@@ -159,8 +164,25 @@ void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
         xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
     }
    else {
-       start_polling(m_pps);
+       start_polling(calculatePps());
    }
+}
+
+int Plotter::calculatePps() {
+    int pps;
+    if ((m_steps - m_count) < m_threshold) {
+        pps = m_pps * (m_steps - m_count) / m_threshold;
+    }
+    else if (m_count < m_threshold) {
+        pps = m_pps * (m_count / m_threshold);
+    }
+    else
+        pps = m_pps;
+
+    // Set to minimum value pps not in bounds
+    if (pps <= 0) pps = m_pps * ACCEL_THRESHOLD_PERCENT / 100;
+    ITM_print("pps = %d\n", pps);
+    return pps;
 }
 
 extern "C" {
@@ -179,15 +201,20 @@ void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
         x1,
         y1,
-        x2 - (currentX/xStepMM),
-        y2 - (currentY/yStepMM)
+        x2 - ((float)currentX/xStepMM),
+        y2 - ((float)currentY/yStepMM)
     );
 }
 
 // TODO: since coordinates are given as floats think about error checking
 void Plotter::plotLine(float x1,float y1, float x2,float y2) {
-    initValues(round(x1),round(y1), round(x2*xStepMM),round(y2*yStepMM));
-    start_polling(m_pps);
+    initBresenhamValues(
+        round(x1),
+        round(y1),
+        round(x2*xStepMM),
+        round(y2*yStepMM)
+    );
+    start_polling(calculatePps());
     xSemaphoreTake(sbRIT, portMAX_DELAY);
 }
 

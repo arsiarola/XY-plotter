@@ -5,6 +5,8 @@
 #include "semphr.h"
 #include "Gcode.h"
 
+#define  ACCEL_THRESHOLD_PERCENT 10
+
 class Plotter {
 public:
     Plotter(Motor* xMotor, Motor* yMotor);
@@ -15,7 +17,7 @@ public:
     void moveIfInArea(Motor* motor, bool step, int& currentPos);
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
-    void initValues      (int x1_,int y1_, int x2_,int y2_);
+    void initBresenhamValues      (int x1_,int y1_, int x2_,int y2_);
     void plotLine        (float x1,float y1, float x2,float y2);
     void plotLineAbsolute(float x1,float y1, float x2,float y2);
     void initPen();
@@ -23,24 +25,29 @@ public:
     void initLaser();
     void handleGcodeData(const Gcode::Data& data);
     void goToOrigin();
+    int calculatePps();
 
-    int totalStepX = 0;
-    int totalStepY = 0;
+    float calculateIfRounding(float coordinate, float& previousCoordinate);
 
     inline int getTotalStepX() { return totalStepX; };
     inline int getTotalStepY() { return totalStepY; };
-    void setXStepInMM(int width) { xStepMM = (float) totalStepX / width; };
-    void setYStepInMM(int height) { yStepMM = (float) totalStepY / height; };
+    void setXStepInMM(int width)  { xStepMM = (float) totalStepX / width; }
+    void setYStepInMM(int height) { yStepMM = (float) totalStepY / height; }
 
 private:
     SemaphoreHandle_t sbRIT;
     Motor* xMotor = nullptr;
     Motor* yMotor = nullptr;
+
     int currentX;
     int currentY;
-
+    int totalStepX = 0;
+    int totalStepY = 0;
     float xStepMM;
     float yStepMM;
+
+    float previousX2 = 0;
+    float previousY2 = 0;
 
     // M5 reply
     bool saveDirX;// TODO: what should the default values be when M10 asks in the beginning
@@ -70,7 +77,8 @@ private:
     int  m_y;
     int  m_prevX;
     int  m_prevY;
-    int  m_pps = 1500;
+    int  m_pps = 500;
+    int  m_threshold;
 };
 
 #endif /* PLOTTER_H_ */
