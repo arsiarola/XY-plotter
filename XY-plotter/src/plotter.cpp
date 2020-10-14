@@ -16,10 +16,18 @@ Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
         saveDirY = !xMotor->getOriginDirection();
 }
 
-// TODO: calculate the area and put the values in savePlottingWidth and height
-void Plotter::calibrate() {
+void Plotter::resetStepValues() {
     totalStepX = 0;
     totalStepY = 0;
+    currentX   = 0;
+    currentY   = 0;
+    xStepMM    = 0;
+    yStepMM    = 0;
+}
+
+// TODO: calculate the area and put the values in savePlottingWidth and height
+void Plotter::calibrate() {
+    resetStepValues();
     while(
             xMotor->readMaxLimit()    ||
             yMotor->readMaxLimit()    ||
@@ -54,8 +62,6 @@ void Plotter::calibrate() {
 
     ITM_print("comeback to origin\n");
     goToOrigin();
-    currentX = 0;
-    currentY = 0;
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
@@ -156,18 +162,6 @@ void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
     ITM_print("%d,%d    %d,%d\n", x1,y1, x2,y2);
 }
 
-void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
-    bresenham();
-    if (m_count > m_steps) {
-        ITM_print("currentX = %d, currentY = %d\n", currentX, currentY);
-        stop_polling();
-        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-    }
-   else {
-       start_polling(calculatePps());
-   }
-}
-
 int Plotter::calculatePps() {
     int pps;
     if ((m_steps - m_count) < m_threshold) {
@@ -183,6 +177,17 @@ int Plotter::calculatePps() {
     if (pps <= 0) pps = m_pps * ACCEL_THRESHOLD_PERCENT / 100;
     ITM_print("pps = %d\n", pps);
     return pps;
+}
+
+void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
+    bresenham();
+    if (m_count > m_steps) {
+        stop_polling();
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+    }
+   else {
+       start_polling(calculatePps());
+   }
 }
 
 extern "C" {
@@ -235,7 +240,6 @@ void Plotter::stop_polling() {
 }
 
 void Plotter::setPenValue(uint8_t value) {
-    currentPenValue = value;
     LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
     LPC_SCT0->OUT[0].SET = 1;
 }

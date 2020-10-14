@@ -6,11 +6,13 @@
 #include "Gcode.h"
 
 #define  ACCEL_THRESHOLD_PERCENT 10
+#define DEFAULT_PPS 500
 
 class Plotter {
 public:
     Plotter(Motor* xMotor, Motor* yMotor);
     static Plotter* activePlotter; // only one plotter can be used in the interrupt
+    void resetStepValues();
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
@@ -46,24 +48,20 @@ private:
     float xStepMM;
     float yStepMM;
 
-    float previousX2 = 0;
-    float previousY2 = 0;
-
     // M5 reply
-    bool saveDirX;// TODO: what should the default values be when M10 asks in the beginning
+    bool saveDirX;
     bool saveDirY;
-    int savePlottingWidth = 380;
-    int savePlottingHeight = 300;
-    uint8_t savePlottingSpeed = 100;  // in percent
+    int savePlottingWidth     = 380;
+    int savePlottingHeight    = 300;
+    uint8_t savePlottingSpeed = 100; // in percent
 
     //Pen / Laser
-    int ticksPerSecond = 1'000'000;
-	int penFrequency = 50;
-	int minDuty = ticksPerSecond / 1000; // 1ms
-	int maxDuty = ticksPerSecond / 500;  // 2ms
-    uint8_t savePenUp = 160;
+    int ticksPerSecond  = 1'000'000;
+    int penFrequency    = 50;
+    int minDuty         = ticksPerSecond / 1000; // 1ms
+    int maxDuty         = ticksPerSecond / 500; // 2ms
+    uint8_t savePenUp   = 160;
     uint8_t savePenDown = 90;
-    uint8_t currentPenValue;
 
 
     // m_ prefix for  Bresenham values only to make less confusing
@@ -77,7 +75,7 @@ private:
     int  m_y;
     int  m_prevX;
     int  m_prevY;
-    int  m_pps = 500;
+    int  m_pps = DEFAULT_PPS;
     int  m_threshold;
 };
 
