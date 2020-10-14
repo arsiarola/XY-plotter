@@ -104,7 +104,7 @@ void Plotter::goToOrigin() {
 void Plotter::moveIfInArea(Motor* motor, bool step, int& currentPos) {
     if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
         (!motor->isOriginDirection() && !motor->readMaxLimit())) {
-        if ( currentX >= 0 && currentY >= 0) {
+        if ( currentPos > 0) {
             motor->writeStepper(step);
         }
         currentPos += motor->isOriginDirection() ? -step : step;
@@ -180,6 +180,14 @@ int Plotter::calculatePps() {
 }
 
 void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
+	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
+	bool maxX = xMotor->readMaxLimit() && (!xMotor->isOriginDirection());
+	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
+	bool maxY = yMotor->readMaxLimit() && (!yMotor->isOriginDirection());
+	if (minX || maxX || minY || maxY) {
+        stop_polling();
+        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
+	}
     bresenham();
     if (m_count > m_steps) {
         stop_polling();
@@ -271,7 +279,6 @@ void Plotter::initPen() {
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
-    setPenValue(160);
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT0->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -280,6 +287,8 @@ void Plotter::initPen() {
     LPC_SCT0->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
     status |= PEN_INITIALISED;
+    setPenValue(160);
+
 }
 
 void Plotter::initLaser() {
@@ -317,10 +326,10 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
                 );
             }
             else {
-                plotLineAbsolute(
-                    0,0,
-                    data.data.g1.moveX, data.data.g1.moveY
-                );
+            		plotLineAbsolute(
+                		0,0,
+						data.data.g1.moveX, data.data.g1.moveY
+                	);
             }
             break;
 
