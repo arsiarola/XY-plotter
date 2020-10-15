@@ -44,8 +44,8 @@ void Plotter::calibrate() {
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
-        totalStepX += xStep ? 1 : 0;
-        totalStepY += yStep ? 1 : 0;
+        totalStepX += !xMotor->readMaxLimit() ? 1 : 0;
+        totalStepY += !yMotor->readMaxLimit() ? 1 : 0;
 		vTaskDelay(1);
         ITM_print("%d: xStep=%\n", i++, xStep);
         if(xMotor->readMaxLimit() && yMotor->readMaxLimit()){
@@ -53,9 +53,12 @@ void Plotter::calibrate() {
             goToOrigin();
         }
 
-    } while (times < 1);
+    } while (times < 2);
 
+    totalStepX = totalStepX/2 - 2; // 2 steps away to avoid limit switch area
+    totalStepY = totalStepY/2 - 2; // 2 steps away to avoid limit switch area
 
+    goToStartPoint();
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
@@ -89,14 +92,21 @@ void Plotter::goToOrigin() {
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
+
+    ITM_print("comeback to origin\n");
+}
+void Plotter::goToStartPoint(){
+	xMotor->writeDirection(!xMotor->getOriginDirection());
+	yMotor->writeDirection(!yMotor->getOriginDirection());
     xMotor->writeStepper(true);
     yMotor->writeStepper(true);
     vTaskDelay(1);
     xMotor->writeStepper(false);
     yMotor->writeStepper(false);
     vTaskDelay(1);
-    ITM_print("comeback to origin\n");
+
 }
+
 
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
     if (xMotor->isOriginDirection() && currentX < totalStepX && currentX > 0) {
@@ -195,12 +205,16 @@ void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
 	}
 
     else {
-        bresenham();
+		bresenham();
+    	if(m_power > 0)
+    	       start_polling(m_pps);
+    	else{
 #if USE_ACCEL == 1
-       start_polling(calculatePps());
+    		start_polling(calculatePps());
 #else
-       start_polling(m_pps);
+    		start_polling(m_pps);
 #endif /*USE_ACCEL*/
+    	}
    }
 }
 
