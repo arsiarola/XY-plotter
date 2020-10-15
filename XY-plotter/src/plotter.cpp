@@ -99,21 +99,21 @@ void Plotter::goToOrigin() {
 }
 
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
-    if (xMotor->isOriginDirection() && currentX <= totalStepX && currentX > 0) {
+    if (xMotor->isOriginDirection() && currentX < totalStepX && currentX > 0) {
         xMotor->writeStepper(xStep);
     }
-    else if (!xMotor->isOriginDirection() && currentX < totalStepX && currentX >= 0) {
+    else if (!xMotor->isOriginDirection() && currentX < totalStepX-1 && currentX >= 0) {
         xMotor->writeStepper(xStep);
     }
-    if (yMotor->isOriginDirection() && currentY <= totalStepY && currentY > 0) {
+    if (yMotor->isOriginDirection() && currentY < totalStepY && currentY > 0) {
         yMotor->writeStepper(yStep);
     }
-    else if (!yMotor->isOriginDirection() && currentY < totalStepY && currentY >= 0) {
+    else if (!yMotor->isOriginDirection() && currentY < totalStepY-1 && currentY >= 0) {
         yMotor->writeStepper(yStep);
     }
-
     currentX += xMotor->isOriginDirection() ? -BOOL_TO_NUM(xStep) : BOOL_TO_NUM(xStep);
     currentY += yMotor->isOriginDirection() ? -BOOL_TO_NUM(yStep) : BOOL_TO_NUM(yStep);
+
 }
 
 void Plotter::bresenham() {
@@ -227,10 +227,10 @@ void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
 
 void Plotter::plotLineRelative(float x2,float y2) {
     plotLine(
-        ((float)currentX/xStepMM),
-        ((float)currentY/yStepMM),
-        ((float)currentX/xStepMM) + x2,
-        ((float)currentY/yStepMM) + y2
+        0,
+        0,
+        x2,
+        y2
     );
 }
 
