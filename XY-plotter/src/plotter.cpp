@@ -41,7 +41,9 @@ void Plotter::calibrate() {
 	bool yStep;
 
     int i = 0;
+    int times = 0;
     do {
+        //ITM_print("%d: xStep=%\n", i, xStep);
         xStep = !xMotor->readMaxLimit();
         yStep = !yMotor->readMaxLimit();
 		xMotor->writeStepper(xStep);
@@ -51,7 +53,13 @@ void Plotter::calibrate() {
 		yMotor->writeStepper(false);
         totalStepX += xStep ? 1 : 0;
         totalStepY += yStep ? 1 : 0;
-    } while (xStep || yStep);
+        ITM_print("%d: xStep=%\n", i++, xStep);
+        if(xMotor->readMaxLimit() && yMotor->readMaxLimit()){
+        	times++;
+            goToOrigin();
+        }
+
+    } while (times < 1);
 
 
     goToOrigin();
@@ -289,15 +297,15 @@ void Plotter::initPen() {
 }
 
 void Plotter::initLaser() {
-    Chip_SCT_Init(LPC_SCT2);
+    Chip_SCT_Init(LPC_SCT1);
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
 	#if defined(BOARD_NXP_LPCXPRESSO_1549)
-	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
+	Chip_SWM_MovablePortPinAssign(SWM_SCT1_OUT0_O, 0, 12);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = 255; // Set the laser low
+    LPC_SCT1->MATCHREL[0].U = 1000; // Set the laser low
 	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -306,6 +314,12 @@ void Plotter::initLaser() {
     LPC_SCT1->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
     status |= LASER_INITIALISED;
+}
+
+void Plotter::setLaserPower(uint8_t pw){
+	m_power = pw;
+	LPC_SCT1->MATCHREL[1].L = m_power * 1000 / 255;
+
 }
 
 void Plotter::handleGcodeData(const Gcode::Data &data) {
@@ -344,6 +358,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
         case Gcode::Id::M4:
             // TODO: create function for setting laser power
             UART_print("%u", data.data.m4.laserPower);
+            setLaserPower(data.data.m4.laserPower);
             break;
 
         case Gcode::Id::M5:

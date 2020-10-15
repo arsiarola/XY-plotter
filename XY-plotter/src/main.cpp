@@ -105,10 +105,10 @@ static void vTask2(void *pvParameters) {
 	portMAX_DELAY) & (BIT_0)) != BIT_0) {
 	}
 	Gcode::Data data;
+
+	plotter->calibrate();
 	plotter->initPen();
 	plotter->initLaser();
-	plotter->calibrate();
-
 	while (true) {
 		if (xQueueReceive(queue, &data,
 		portMAX_DELAY) == pdTRUE) {
@@ -121,12 +121,12 @@ static void vTask2(void *pvParameters) {
 }
 
 static void vTask3(void *pvParameters) {
-	xDirection->write(CLOCKWISE);
-	yDirection->write(CLOCKWISE);
 	// TODO check the limit switches here which corresponds to which axis
 
 	while (limx1->read() && limx2->read() && limy1->read() && limy2->read())
 		;
+	xDirection->write(CLOCKWISE);
+	yDirection->write(CLOCKWISE);
 
 	while (!limx1->read() || !limx2->read()) {
 		xStep->write(true);

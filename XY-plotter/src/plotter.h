@@ -34,6 +34,7 @@ public:
     void handleGcodeData(const Gcode::Data& data);
     void goToOrigin();
     int calculatePps();
+    void setLaserPower(uint8_t pw);
 
     float calculateIfRounding(float coordinate, float& previousCoordinate);
 
@@ -69,6 +70,7 @@ private:
     int maxDuty         = ticksPerSecond / 500; // 2ms
     uint8_t savePenUp   = 160;
     uint8_t savePenDown = 90;
+    uint8_t m_power;
 
 
     // m_ prefix for  Bresenham values only to make less confusing
