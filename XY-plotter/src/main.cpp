@@ -28,7 +28,7 @@
 #include "event_groups.h"
 
 #define READ_FROM_FILE_TEST 0
-#define BIT_0	( 1 << 0 )
+#define INIT_VARIABLE_BIT	( 1 << 0 )
 
 #if READ_FROM_FILE_TEST == 1
 #define LINE_SIZE 128
@@ -37,16 +37,17 @@
 /* VARIABLES */
 static EventGroupHandle_t eventBit;
 static QueueHandle_t queue;
-static SemaphoreHandle_t* initVariablesSemaphore;
-static TaskHandle_t* initVariablesHandle;
+static TaskHandle_t initVariablesHandle;
+static SemaphoreHandle_t initVariablesSemaphore;
 static Motor* xMotor;
 static Motor* yMotor;
 static Plotter* plotter;
 
-static DigitalIoPin* limx1;
-static DigitalIoPin* limx2;
-static DigitalIoPin* limy1;
-static DigitalIoPin* limy2;
+DigitalIoPin* lim1;
+DigitalIoPin* lim2;
+DigitalIoPin* lim3;
+DigitalIoPin* lim4;
+
 static DigitalIoPin* xStep;
 static DigitalIoPin* xDirection;
 static DigitalIoPin* yStep;
@@ -56,11 +57,13 @@ static DigitalIoPin* yDirection;
 #define STR_SIZE 64
 static void vTask1(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
-	while ((xEventGroupWaitBits(eventBit, BIT_0,
-	pdTRUE,
-	pdTRUE,
-	portMAX_DELAY) & (BIT_0)) != BIT_0) {
-	}
+	xEventGroupWaitBits(
+	    			eventBit,
+					INIT_VARIABLE_BIT,
+	                pdFALSE,
+	                pdTRUE,
+	                portMAX_DELAY);
+
 	char buffer[BUFFER_SIZE] = "";
 	char str[STR_SIZE] = "";
 	int bufferLength = 0;
@@ -98,14 +101,17 @@ static void vTask1(void *pvParameters) {
 }
 
 static void vTask2(void *pvParameters) {
-	vTaskDelay(100); /* wait just in case */
-	while ((xEventGroupWaitBits(eventBit, BIT_0,
-	pdTRUE,
-	pdTRUE,
-	portMAX_DELAY) & (BIT_0)) != BIT_0) {
-	}
-	Gcode::Data data;
+    vTaskDelay(100); /* wait just in case */
+    xEventGroupWaitBits(
+    			eventBit,
+				INIT_VARIABLE_BIT,
+                pdFALSE,
+                pdTRUE,
+                portMAX_DELAY);
 
+
+
+	Gcode::Data data;
 	plotter->calibrate();
 	plotter->initPen();
 	plotter->initLaser();
@@ -120,48 +126,56 @@ static void vTask2(void *pvParameters) {
 	}
 }
 
+DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction, bool dir) {
+    direction->write(dir);
+    DigitalIoPin* ret;
+	while (1) {
+        if     (lim1->read()) { ret = lim1; break; }
+        else if(lim2->read()) { ret = lim2; break; }
+        else if(lim3->read()) { ret = lim3; break; }
+        else if(lim4->read()) { ret = lim4; break; }
+		step->write(true);
+		vTaskDelay(1);
+		step->write(false);
+	}
+
+    // Why an earth do we need to move steps back for the y axis
+    direction->write(!dir);
+    step->write(true);
+    vTaskDelay(1);
+    step->write(false);
+    vTaskDelay(1);
+    step->write(true);
+    vTaskDelay(1);
+    step->write(false);
+    return ret;
+}
+
 static void vTask3(void *pvParameters) {
-	// TODO check the limit switches here which corresponds to which axis
+	lim1 = new DigitalIoPin(0, 9, DigitalIoPin::pullup, true);
+	lim2 = new DigitalIoPin(0, 29, DigitalIoPin::pullup, true);
+	lim3 = new DigitalIoPin(0, 0, DigitalIoPin::pullup, true);
+	lim4 = new DigitalIoPin(1, 3, DigitalIoPin::pullup, true);
 
-	while (limx1->read() && limx2->read() && limy1->read() && limy2->read())
-		;
-	xDirection->write(CLOCKWISE);
-	yDirection->write(CLOCKWISE);
+	xStep = new DigitalIoPin(0, 24, DigitalIoPin::output, true);
+	xDirection = new DigitalIoPin(1, 0, DigitalIoPin::output, true);
 
-	while (!limx1->read() || !limx2->read()) {
-		xStep->write(true);
-		vTaskDelay(1);
-		xStep->write(false);
-		if (limx1->read()) {
-			xMotor = new Motor( { xStep, xDirection, limx1, limx2,
-			CLOCKWISE });
-			break;
-		} else if (limx2->read()) {
-			xMotor = new Motor( { xStep, xDirection, limx2, limx1,
-			CLOCKWISE });
-			break;
-		}
-	}
+	yStep = new DigitalIoPin(0, 27, DigitalIoPin::output, true);
+	yDirection = new DigitalIoPin(0, 28, DigitalIoPin::output, true);
 
-	while (!limy1->read() || !limy2->read()) {
-		yStep->write(true);
-		vTaskDelay(1);
-		yStep->write(false);
-		if (limy1->read()) {
-			yMotor = new Motor( { yStep, yDirection, limy1, limy2,
-			CLOCKWISE });
-			break;
-		} else if (limx2->read()) {
-			yMotor = new Motor( { yStep, yDirection, limy2, limy1,
-			CLOCKWISE });
-			break;
-		}
-	}
+	while (lim1->read() || lim2->read() || lim3->read() || lim4->read()) {}
+    DigitalIoPin* yLimMin = getCorrespondingLimit(yStep, yDirection, CLOCKWISE);
+    DigitalIoPin* yLimMax = getCorrespondingLimit(yStep, yDirection, COUNTER_CLOCKWISE);
+
+    DigitalIoPin* xLimMin = getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
+    DigitalIoPin* xLimMax = getCorrespondingLimit(xStep, xDirection, COUNTER_CLOCKWISE);
+
+    xMotor = new Motor (xStep, xDirection, xLimMin, xLimMax, CLOCKWISE);
+    yMotor = new Motor (yStep, yDirection, yLimMin, yLimMax, CLOCKWISE);
 	plotter = new Plotter(xMotor, yMotor);
 	Plotter::activePlotter = plotter;
-	xEventGroupSetBits(eventBit, BIT_0);
-	vTaskSuspend(*initVariablesHandle);
-
+	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
+	vTaskSuspend(initVariablesHandle);
 }
 
 extern "C" {
@@ -175,20 +189,10 @@ void vConfigureTimerForRunTimeStats(void) {
 int main() {
 	ITM_init();
 	prvSetupHardware();
-	initVariablesSemaphore = new SemaphoreHandle_t;
-	initVariablesHandle = new TaskHandle_t;
+    // Initalise only freertos variables in main
+
 	eventBit = xEventGroupCreate();
 	queue = xQueueCreate(5, sizeof(Gcode::Data));
-	limx1 = new DigitalIoPin(0, 9, DigitalIoPin::pullup, true);
-	limx2 = new DigitalIoPin(0, 29, DigitalIoPin::pullup, true);
-	limy1 = new DigitalIoPin(0, 0, DigitalIoPin::pullup, true);
-	limy2 = new DigitalIoPin(1, 3, DigitalIoPin::pullup, true);
-
-	xStep = new DigitalIoPin(0, 24, DigitalIoPin::output, true);
-	xDirection = new DigitalIoPin(1, 0, DigitalIoPin::output, true);
-
-	yStep = new DigitalIoPin(0, 27, DigitalIoPin::output, true);
-	yDirection = new DigitalIoPin(0, 28, DigitalIoPin::output, true);
 
 	Chip_RIT_Init(LPC_RITIMER);
 	Chip_RIT_Disable(LPC_RITIMER);
@@ -197,24 +201,21 @@ int main() {
 	ITM_print("Starting\n");
 
 	xTaskCreate(cdc_task, "CDC",
-	configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL),
-			(TaskHandle_t *) NULL);
+	configMINIMAL_STACK_SIZE + 128, NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
 
 	xTaskCreate(vTask1, "parser",
-	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 1UL),
-			(TaskHandle_t *) NULL);
+	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
+
 	xTaskCreate(vTask2, "motor",
-	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 2UL),
-			(TaskHandle_t *) NULL);
+	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 2UL), (TaskHandle_t *) NULL);
 
 	xTaskCreate(vTask3, "initVariables",
-	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 2UL),
-			initVariablesHandle);
+	configMINIMAL_STACK_SIZE + 512, NULL, (tskIDLE_PRIORITY + 2UL), &initVariablesHandle);
 
 	vTaskStartScheduler();
 
 #if READ_FROM_FILE_TEST == 1
-	// TODO: what is the current working directory in mcu?
+	// TODO: what is the current working directory in mcu? Cant find the file no matter what
 	FILE *fp;
 	const char *fname = "parser/gcode01.txt";
 	fp = fopen(fname, "r");
@@ -234,10 +235,10 @@ int main() {
 	delete xMotor;
 	delete yMotor;
 	delete plotter;
-	delete limx1;
-	delete limx2;
-	delete limy1;
-	delete limy2;
+	delete lim1;
+	delete lim2;
+	delete lim3;
+	delete lim4;
 	delete xStep;
 	delete xDirection;
 	delete yStep;

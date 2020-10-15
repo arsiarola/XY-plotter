@@ -28,13 +28,6 @@ void Plotter::resetStepValues() {
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
     resetStepValues();
-//    while(
-//            xMotor->readMaxLimit()    ||
-//            yMotor->readMaxLimit()    ||
-//            xMotor->readOriginLimit() ||
-//            yMotor->readOriginLimit()
-//     );
-
     goToOrigin();
 
 	bool xStep;
