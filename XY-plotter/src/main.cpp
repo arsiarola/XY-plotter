@@ -56,7 +56,7 @@ static DigitalIoPin* yDirection;
 #define BUFFER_SIZE 128
 #define STR_SIZE 64
 static void vTask1(void *pvParameters) {
-	vTaskDelay(100); /* wait until semaphores are created */
+	vTaskDelay(configTICK_RATE_HZ / 10); /* wait until semaphores are created */
 	xEventGroupWaitBits(
 	    			eventBit,
 					INIT_VARIABLE_BIT,
@@ -101,15 +101,13 @@ static void vTask1(void *pvParameters) {
 }
 
 static void vTask2(void *pvParameters) {
-    vTaskDelay(100); /* wait just in case */
+	vTaskDelay(configTICK_RATE_HZ / 10); /* wait just in case */
     xEventGroupWaitBits(
     			eventBit,
 				INIT_VARIABLE_BIT,
                 pdFALSE,
                 pdTRUE,
                 portMAX_DELAY);
-
-
 
 	Gcode::Data data;
 	plotter->calibrate();
