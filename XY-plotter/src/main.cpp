@@ -231,7 +231,17 @@ int main() {
 	}
 #endif /* READ_FROM_FILE_TEST */
 
-
+	delete xMotor;
+	delete yMotor;
+	delete plotter;
+	delete limx1;
+	delete limx2;
+	delete limy1;
+	delete limy2;
+	delete xStep;
+	delete xDirection;
+	delete yStep;
+	delete yDirection;
 
 	return 1;
 }

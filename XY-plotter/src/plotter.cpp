@@ -297,10 +297,10 @@ void Plotter::initPen() {
 }
 
 void Plotter::initLaser() {
-    Chip_SCT_Init(LPC_SCT1);
+    Chip_SCT_Init(LPC_SCT2);
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
 	#if defined(BOARD_NXP_LPCXPRESSO_1549)
-	Chip_SWM_MovablePortPinAssign(SWM_SCT1_OUT0_O, 0, 12);
+	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
@@ -319,6 +319,7 @@ void Plotter::initLaser() {
 void Plotter::setLaserPower(uint8_t pw){
 	m_power = pw;
 	LPC_SCT1->MATCHREL[1].L = m_power * 1000 / 255;
+    LPC_SCT1->OUT[0].SET = 1;
 
 }
 

@@ -16,7 +16,6 @@ public:
         DigitalIoPin* limMax,
         bool originDirection
     );
-    ~Motor();
 
     bool readStepper()     { return stepper->read(); }
     bool readDirection()   { return direction->read(); }
