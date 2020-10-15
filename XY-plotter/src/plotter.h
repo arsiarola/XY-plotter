@@ -8,6 +8,7 @@
 #define  ACCEL_THRESHOLD_PERCENT 10
 #define DEFAULT_PPS 1500
 #define USE_ACCEL 0
+#define BOOL_TO_NUM(boolean) (boolean ? 1 : 0)
 
 #define PEN_INITIALISED   (1 << 0)
 #define LASER_INITIALISED (1 << 1)
@@ -23,7 +24,7 @@ public:
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
-    void moveIfInArea(Motor* motor, int step, int& currentPos);
+    void moveIfInArea(bool xStep, bool yStep);
     void bresenham();
     void isrFunction(portBASE_TYPE& xHigherPriorityWoken);
     void initBresenhamValues      (int x1_,int y1_, int x2_,int y2_);
@@ -51,8 +52,8 @@ private:
     Motor* xMotor = nullptr;
     Motor* yMotor = nullptr;
 
-    int currentX;
-    int currentY;
+    volatile int currentX;
+    volatile int currentY;
     int totalStepX = 0;
     int totalStepY = 0;
     float xStepMM;
