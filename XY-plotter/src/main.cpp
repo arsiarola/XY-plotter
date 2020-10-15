@@ -137,6 +137,7 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
 		step->write(true);
 		vTaskDelay(1);
 		step->write(false);
+		vTaskDelay(1);
 	}
 
     // Why an earth do we need to move steps back for the y axis
@@ -145,9 +146,6 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
     vTaskDelay(1);
     step->write(false);
     vTaskDelay(1);
-    step->write(true);
-    vTaskDelay(1);
-    step->write(false);
     return ret;
 }
 

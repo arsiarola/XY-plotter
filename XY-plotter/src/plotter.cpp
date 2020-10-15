@@ -85,6 +85,7 @@ void Plotter::goToOrigin() {
 		vTaskDelay(1);
 		xMotor->writeStepper(false);
 		yMotor->writeStepper(false);
+		vTaskDelay(1);
     } while (xStep || yStep);
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
