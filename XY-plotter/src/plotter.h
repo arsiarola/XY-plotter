@@ -12,6 +12,8 @@
 #define PEN_INITIALISED   (1 << 0)
 #define LASER_INITIALISED (1 << 1)
 #define CALIBRATED        (1 << 2)
+#define LS_FREQ 1000
+#define LS_CYCLE 255
 
 class Plotter {
 public:

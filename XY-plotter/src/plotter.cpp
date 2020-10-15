@@ -297,15 +297,15 @@ void Plotter::initPen() {
 }
 
 void Plotter::initLaser() {
-    Chip_SCT_Init(LPC_SCT2);
+    Chip_SCT_Init(LPC_SCT1);
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SWM);
 	#if defined(BOARD_NXP_LPCXPRESSO_1549)
-	Chip_SWM_MovablePortPinAssign(SWM_SCT2_OUT0_O, 0, 12);
+	Chip_SWM_MovablePortPinAssign(SWM_SCT1_OUT0_O, 0, 12);
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = 1000; // Set the laser low
+    LPC_SCT1->MATCHREL[0].U = LS_FREQ - 1; // Set the laser low
 	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -318,8 +318,8 @@ void Plotter::initLaser() {
 
 void Plotter::setLaserPower(uint8_t pw){
 	m_power = pw;
-	LPC_SCT1->MATCHREL[1].L = m_power * 1000 / 255;
-    LPC_SCT1->OUT[0].SET = 1;
+	LPC_SCT1->MATCHREL[1].L = m_power * LS_FREQ / LS_CYCLE;
+    LPC_SCT1->OUT[0].SET = m_power > 0 ? 1 : 0;
 
 }
 
