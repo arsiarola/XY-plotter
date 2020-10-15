@@ -46,6 +46,7 @@ void Plotter::calibrate() {
 		yMotor->writeStepper(false);
         totalStepX += xStep ? 1 : 0;
         totalStepY += yStep ? 1 : 0;
+		vTaskDelay(1);
         ITM_print("%d: xStep=%\n", i++, xStep);
         if(xMotor->readMaxLimit() && yMotor->readMaxLimit()){
         	times++;
@@ -54,8 +55,6 @@ void Plotter::calibrate() {
 
     } while (times < 1);
 
-
-    goToOrigin();
 
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
@@ -90,18 +89,31 @@ void Plotter::goToOrigin() {
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
+    xMotor->writeStepper(true);
+    yMotor->writeStepper(true);
+    vTaskDelay(1);
+    xMotor->writeStepper(false);
+    yMotor->writeStepper(false);
+    vTaskDelay(1);
     ITM_print("comeback to origin\n");
-
 }
 
-void Plotter::moveIfInArea(Motor* motor, int step, int& currentPos) {
-    if ((motor->isOriginDirection() && !motor->readOriginLimit()) ||
-        (!motor->isOriginDirection() && !motor->readMaxLimit())) {
-        if ( currentPos >= 0) {
-            motor->writeStepper(step);
-        }
-        currentPos += motor->isOriginDirection() ? -step : step;
+void Plotter::moveIfInArea(bool xStep, bool yStep) {
+    if (xMotor->isOriginDirection() && currentX <= totalStepX && currentX > 0) {
+        xMotor->writeStepper(xStep);
     }
+    else if (!xMotor->isOriginDirection() && currentX < totalStepX && currentX >= 0) {
+        xMotor->writeStepper(xStep);
+    }
+    if (yMotor->isOriginDirection() && currentY <= totalStepY && currentY > 0) {
+        yMotor->writeStepper(yStep);
+    }
+    else if (!yMotor->isOriginDirection() && currentY < totalStepY && currentY >= 0) {
+        yMotor->writeStepper(yStep);
+    }
+
+    currentX += xMotor->isOriginDirection() ? -BOOL_TO_NUM(xStep) : BOOL_TO_NUM(xStep);
+    currentY += yMotor->isOriginDirection() ? -BOOL_TO_NUM(yStep) : BOOL_TO_NUM(yStep);
 }
 
 void Plotter::bresenham() {
@@ -110,10 +122,9 @@ void Plotter::bresenham() {
         return;
     }
 
-    int xStep = m_x != m_prevX ? 1 : 0;
-    int yStep = m_y != m_prevY ? 1 : 0;
-    moveIfInArea(xMotor, xStep, currentX);
-    moveIfInArea(yMotor, yStep, currentY);
+    bool xStep = m_x != m_prevX;
+    bool yStep = m_y != m_prevY;
+    moveIfInArea(xStep, yStep);
 
     m_prevX = m_x;
     m_prevY = m_y;
@@ -135,8 +146,8 @@ void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
         ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
         return;
     }
-    xMotor->writeDirection(x2_ > x1_);
-    yMotor->writeDirection(y2_ > y1_);
+    xMotor->writeDirection(x2_ > x1_ ? !xMotor->getOriginDirection() : xMotor->getOriginDirection());
+    yMotor->writeDirection(y2_ > y1_ ? !yMotor->getOriginDirection() : yMotor->getOriginDirection());
     int x1      = x1_ < x2_ ? x1_ : x2_;
     int x2      = x1_ > x2_ ? x1_ : x2_;
     int y1      = y1_ < y2_ ? y1_ : y2_;
@@ -207,10 +218,10 @@ extern "C" {
 
 void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
-        x1,
-        y1,
-        x2 - ((float)currentX/xStepMM),
-        y2 - ((float)currentY/yStepMM)
+        x1 + ((float)currentX/xStepMM),
+        y1 + ((float)currentY/yStepMM),
+        x2,
+        y2
     );
 }
 
@@ -287,7 +298,6 @@ void Plotter::initPen() {
     LPC_SCT0->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
     status |= PEN_INITIALISED;
     setPenValue(160);
-
 }
 
 void Plotter::initLaser() {
