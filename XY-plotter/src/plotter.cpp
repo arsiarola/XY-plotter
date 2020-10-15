@@ -284,6 +284,7 @@ void Plotter::initPen() {
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
+	LPC_SCT1->MATCHREL[1].L = 0;
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT0->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -314,12 +315,13 @@ void Plotter::initLaser() {
     LPC_SCT1->OUT[0].CLR = (1 << 1);                // event 1 will clear SCTx_OUT0
     LPC_SCT1->CTRL_L &= ~(1 << 2);                  // unhalt it by clearing bit 2 of CTRL reg
     status |= LASER_INITIALISED;
+    setLaserPower(0);
 }
 
 void Plotter::setLaserPower(uint8_t pw){
 	m_power = pw;
 	LPC_SCT1->MATCHREL[1].L = m_power * LS_FREQ / LS_CYCLE;
-    LPC_SCT1->OUT[0].SET = m_power > 0 ? 1 : 0;
+    LPC_SCT1->OUT[0].SET = m_power > 0 ? (1 << 0) : 0; // Disable output when laser off
 
 }
 
@@ -360,6 +362,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             // TODO: create function for setting laser power
             UART_print("%u", data.data.m4.laserPower);
             setLaserPower(data.data.m4.laserPower);
+            vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the laser off in the sim
             break;
 
         case Gcode::Id::M5:
