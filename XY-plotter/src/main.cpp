@@ -110,9 +110,6 @@ static void vTask2(void *pvParameters) {
                 portMAX_DELAY);
 
 	Gcode::Data data;
-	plotter->calibrate();
-	plotter->initPen();
-	plotter->initLaser();
 	while (true) {
 		if (xQueueReceive(queue, &data,
 		portMAX_DELAY) == pdTRUE) {
@@ -170,6 +167,10 @@ static void vTask3(void *pvParameters) {
     yMotor = new Motor (yStep, yDirection, yLimMin, yLimMax, CLOCKWISE);
 	plotter = new Plotter(xMotor, yMotor);
 	Plotter::activePlotter = plotter;
+	plotter->initPen();
+	plotter->initLaser();
+	plotter->calibrate();
+
 	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
 	vTaskSuspend(initVariablesHandle);
 }
