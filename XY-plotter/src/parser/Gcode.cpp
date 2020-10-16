@@ -48,10 +48,11 @@ const char* Gcode::toFormat(const Id& id_) {
                 "H0 "          // undocumented
                 "S%u "         // speed
                 "U%u D%u\r\n"      // penup / down
+            	"OK\r\n"
                 ;
 
         case M11:
-            return "M11 %d %d %d %d\r\n";
+            return "M11 %d %d %d %d\r\nOK\r\n";
 
         default:
             return "";

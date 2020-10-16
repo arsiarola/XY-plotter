@@ -3,6 +3,8 @@
 #include "parser.h"
 #include "../printer.h"
 #include "Gcode.h"
+#include "../usb/user_vcom.h"
+
 
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +39,8 @@ void parseCode(const char *str, QueueHandle_t &queue) {
     uint8_t number;
     strncpy(gcode, str, 8);
     trimTrailing(gcode);
+    char message[] = "OK\n";
+
 
     char *token = strchr(gcode, ' ');
     if (token != NULL) {
@@ -55,7 +59,18 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 data.id = gcodes[i]->getId();
                 if (xQueueSendToBack(queue, &data, portMAX_DELAY) != pdTRUE) {
                 	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
-                };
+                }
+                else{
+                	if((letter != 'M') && ( number != 10 || number !=11)){
+                		USB_send((uint8_t *) message, strlen(message));
+                		ITM_print("send OOKKK\n");
+
+                	}
+                	else{
+            			ITM_print("NOTTT send   OOKKK\n");
+
+                	}
+                }
 
             }
             else {

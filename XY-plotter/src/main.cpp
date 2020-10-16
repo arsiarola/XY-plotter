@@ -116,7 +116,7 @@ static void vTask2(void *pvParameters) {
 			UART_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
 			UART_print("\r\n");
 			plotter->handleGcodeData(data);
-			USB_send((uint8_t *) "OK\r\n", 4);
+			//USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
 }
@@ -167,8 +167,10 @@ static void vTask3(void *pvParameters) {
     yMotor = new Motor (yStep, yDirection, yLimMin, yLimMax, CLOCKWISE);
 	plotter = new Plotter(xMotor, yMotor);
 	Plotter::activePlotter = plotter;
+
 	plotter->initPen();
 	plotter->initLaser();
+	// Init PWM before doing calibrate to make sure pen and laser is off
 	plotter->calibrate();
 
 	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
