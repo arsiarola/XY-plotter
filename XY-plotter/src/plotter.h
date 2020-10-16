@@ -38,7 +38,6 @@ public:
     void goToOrigin();
     int calculatePps();
     void setLaserPower(uint8_t pw);
-    void goToStartPoint();
 
     float calculateIfRounding(float coordinate, float& previousCoordinate);
 

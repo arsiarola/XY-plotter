@@ -55,10 +55,9 @@ void Plotter::calibrate() {
 
     } while (times < 2);
 
-    totalStepX = totalStepX/2 - 2; // 2 steps away to avoid limit switch area
-    totalStepY = totalStepY/2 - 2; // 2 steps away to avoid limit switch area
+    totalStepX = totalStepX/2;
+    totalStepY = totalStepY/2;
 
-    goToStartPoint();
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
@@ -92,19 +91,13 @@ void Plotter::goToOrigin() {
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
-
-    ITM_print("comeback to origin\n");
-}
-void Plotter::goToStartPoint(){
-	xMotor->writeDirection(!xMotor->getOriginDirection());
-	yMotor->writeDirection(!yMotor->getOriginDirection());
     xMotor->writeStepper(true);
     yMotor->writeStepper(true);
     vTaskDelay(1);
     xMotor->writeStepper(false);
     yMotor->writeStepper(false);
     vTaskDelay(1);
-
+    ITM_print("comeback to origin\n");
 }
 
 
@@ -114,13 +107,18 @@ void Plotter::moveIfInArea(bool xStep, bool yStep) {
     }
     else if (!xMotor->isOriginDirection() && currentX < totalStepX-1 && currentX >= 0) {
         xMotor->writeStepper(xStep);
+        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
+
     }
     if (yMotor->isOriginDirection() && currentY < totalStepY && currentY > 0) {
         yMotor->writeStepper(yStep);
+        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
+
     }
     else if (!yMotor->isOriginDirection() && currentY < totalStepY-1 && currentY >= 0) {
         yMotor->writeStepper(yStep);
     }
+
     currentX += xMotor->isOriginDirection() ? -BOOL_TO_NUM(xStep) : BOOL_TO_NUM(xStep);
     currentY += yMotor->isOriginDirection() ? -BOOL_TO_NUM(yStep) : BOOL_TO_NUM(yStep);
 
