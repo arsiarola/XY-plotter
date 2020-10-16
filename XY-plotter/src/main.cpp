@@ -133,7 +133,7 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
     currentDirection = direction;
     direction->write(dir);
     hitLimitSwitch = nullptr;
-    RIT_Start_polling(0, 500, []() {
+    RIT_Start_polling(500, []() {
         portBASE_TYPE xHigherPriorityWoken = pdFALSE;
         if      (lim1->read()) hitLimitSwitch = lim1;
         else if (lim2->read()) hitLimitSwitch = lim2;
@@ -141,6 +141,7 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
         else if (lim4->read()) hitLimitSwitch = lim4;
 
         if (hitLimitSwitch != nullptr) {
+            RIT_Stop_polling();
             xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
         }
         else {

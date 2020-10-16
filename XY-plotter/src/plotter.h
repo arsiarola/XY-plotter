@@ -42,6 +42,8 @@ public:
 
     inline int getTotalStepX() { return totalStepX; };
     inline int getTotalStepY() { return totalStepY; };
+    inline void setTotalStepX(int count) { totalStepX = count; };
+    inline void setTotalStepY(int count) { totalStepY = count; };
     void setXStepInMM(int width)  { xStepMM = (float) totalStepX / width; }
     void setYStepInMM(int height) { yStepMM = (float) totalStepY / height; }
     int getBresenhamSteps() { return m_steps; }
@@ -49,10 +51,10 @@ public:
     int getCurrentX() { return currentX; }
     int getCurrentY() { return currentY; }
 
-    Motor* xMotor = nullptr;
-    Motor* yMotor = nullptr;
 private:
     uint32_t status = 0;
+    Motor* xMotor = nullptr;
+    Motor* yMotor = nullptr;
 
     volatile int currentX;
     volatile int currentY;
@@ -101,8 +103,9 @@ extern SemaphoreHandle_t RIT_Semaphore;
 
 extern void PlotterIsrFunction();
 extern void RIT_Start_polling(uint32_t count, int pps, RIT_void_t);
-extern void RIT_Stop_polling();
+extern void RIT_Start_polling(int pps, RIT_void_t);
 extern void RIT_Start_polling(int pps);
+extern void RIT_Stop_polling();
 
 
 #endif /* PLOTTER_H_ */

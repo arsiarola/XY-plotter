@@ -28,35 +28,33 @@ void Plotter::calibrate() {
     totalStepY = 0;
     xStepMM    = 0;
     yStepMM    = 0;
+    activePlotter = this;
     goToOrigin();
+    int times = 3;
+    for (int i = 0; i < times; ++i) {
+        RIT_Start_polling(500, []() {
+            portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+            bool xStep = !activePlotter->xMotor->readMaxLimit();
+            bool yStep = !activePlotter->yMotor->readMaxLimit();
+            activePlotter->xMotor->writeStepper(xStep);
+            activePlotter->yMotor->writeStepper(yStep);
+            activePlotter->totalStepX += !activePlotter->xMotor->readMaxLimit() ? 1 : 0;
+            activePlotter->totalStepY += !activePlotter->yMotor->readMaxLimit() ? 1 : 0;
+            activePlotter->xMotor->writeStepper(false);
+            activePlotter->yMotor->writeStepper(false);
+            if(activePlotter->xMotor->readMaxLimit() && activePlotter->yMotor->readMaxLimit()){
+                RIT_Stop_polling();
+                xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+                ITM_print("Give, RIT-semaphore\n");
+            }
+            portEND_SWITCHING_ISR(xHigherPriorityWoken);
+        });
+        xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
+        goToOrigin();
+    }
 
-	bool xStep;
-	bool yStep;
-
-    int i = 0;
-    int times = 0;
-    do {
-        //ITM_print("%d: xStep=%\n", i, xStep);
-        xStep = !xMotor->readMaxLimit();
-        yStep = !yMotor->readMaxLimit();
-		xMotor->writeStepper(xStep);
-		yMotor->writeStepper(yStep);
-		vTaskDelay(1);
-		xMotor->writeStepper(false);
-		yMotor->writeStepper(false);
-        totalStepX += !xMotor->readMaxLimit() ? 1 : 0;
-        totalStepY += !yMotor->readMaxLimit() ? 1 : 0;
-		vTaskDelay(1);
-        ITM_print("%d: xStep=%\n", i++, xStep);
-        if(xMotor->readMaxLimit() && yMotor->readMaxLimit()){
-        	times++;
-            goToOrigin();
-        }
-
-    } while (times < 2);
-
-    totalStepX = totalStepX/2;
-    totalStepY = totalStepY/2;
+    totalStepX = totalStepX / times;
+    totalStepY = totalStepY / times;
 
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
@@ -77,19 +75,23 @@ void Plotter::goToOrigin() {
     currentY   = 0;
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
-	bool xStep;
-	bool yStep;
 
-    do {
-        xStep = !xMotor->readOriginLimit();
-        yStep = !yMotor->readOriginLimit();
-		xMotor->writeStepper(xStep);
-		yMotor->writeStepper(yStep);
-		vTaskDelay(1);
-		xMotor->writeStepper(false);
-		yMotor->writeStepper(false);
-		vTaskDelay(1);
-    } while (xStep || yStep);
+    RIT_Start_polling(500, []() {
+        portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+        bool xStep = !activePlotter->xMotor->readOriginLimit();
+        bool yStep = !activePlotter->yMotor->readOriginLimit();
+		activePlotter->xMotor->writeStepper(xStep);
+		activePlotter->yMotor->writeStepper(yStep);
+		activePlotter->xMotor->writeStepper(false);
+		activePlotter->yMotor->writeStepper(false);
+        if(!xStep && !yStep){
+            RIT_Stop_polling();
+            xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+            ITM_print("Give, RIT-semaphore\n");
+        }
+        portEND_SWITCHING_ISR(xHigherPriorityWoken);
+    });
+    xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
@@ -416,6 +418,11 @@ extern "C" {
 }
 
 void RIT_Start_polling(uint32_t count, int pps, RIT_void_t callback = RIT_Callback) {
+    RIT_Count = count;
+    RIT_Start_polling(pps, callback);
+}
+
+void RIT_Start_polling(int pps, RIT_void_t callback) {
     RIT_Callback = callback;
     RIT_Start_polling(pps);
 }
