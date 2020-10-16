@@ -6,28 +6,28 @@
 #include <string.h>
 #include <math.h>
 
+#include "FreeRTOS.h"
+
 Plotter* Plotter::activePlotter = nullptr;
+uint32_t volatile RIT_Count = 0;
+void (*RIT_Callback)();
+SemaphoreHandle_t RIT_Semaphore = xSemaphoreCreateBinary();
+
 Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
     xMotor(xMotor),
     yMotor(yMotor)
-    {
-    	sbRIT = xSemaphoreCreateBinary();
-        saveDirX = !xMotor->getOriginDirection();
-        saveDirY = !xMotor->getOriginDirection();
-}
-
-void Plotter::resetStepValues() {
-    totalStepX = 0;
-    totalStepY = 0;
-    currentX   = 0;
-    currentY   = 0;
-    xStepMM    = 0;
-    yStepMM    = 0;
+{
+    saveDirX = !xMotor->getOriginDirection();
+    saveDirY = !xMotor->getOriginDirection();
 }
 
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
-    resetStepValues();
+    ITM_print("Starting calibration\n");
+    totalStepX = 0;
+    totalStepY = 0;
+    xStepMM    = 0;
+    yStepMM    = 0;
     goToOrigin();
 
 	bool xStep;
@@ -65,14 +65,16 @@ void Plotter::calibrate() {
     ITM_print("width = %d \n", savePlottingWidth);
     setXStepInMM(savePlottingWidth);
     setYStepInMM(savePlottingHeight);
-    ITM_print("calibration done\n");
     ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
     ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
+    ITM_print("calibration done\n");
     status |= CALIBRATED;
 }
 
 // Simple function for calibrating, should not be used for GCODES
 void Plotter::goToOrigin() {
+    currentX   = 0;
+    currentY   = 0;
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
 	bool xStep;
@@ -191,43 +193,6 @@ int Plotter::calculatePps() {
     return pps;
 }
 
-void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
-	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
-	bool maxX = xMotor->readMaxLimit()    && (!xMotor->isOriginDirection());
-	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
-	bool maxY = yMotor->readMaxLimit()    && (!yMotor->isOriginDirection());
-	if (minX || maxX || minY || maxY || m_count > m_steps) {
-        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
-        stop_polling();
-        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-	}
-
-    else {
-		bresenham();
-    	if(m_power > 0)
-    	       start_polling(m_pps);
-    	else{
-#if USE_ACCEL == 1
-    		start_polling(calculatePps());
-#else
-    		start_polling(m_pps);
-#endif /*USE_ACCEL*/
-    	}
-   }
-}
-
-extern "C" {
-    void RIT_IRQHandler(void) {
-        Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
-        portBASE_TYPE xHigherPriorityWoken = pdFALSE;
-        if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction(xHigherPriorityWoken);
-
-        // End the ISR and (possibly) do a context switch
-        portEND_SWITCHING_ISR(xHigherPriorityWoken);
-    }
-}
-
-
 void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
         x1 + ((float)currentX/xStepMM),
@@ -263,25 +228,8 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
 #else
        start_polling(m_pps);
 #endif /*USE_ACCEL*/
-    xSemaphoreTake(sbRIT, portMAX_DELAY);
+    xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 }
-
-void Plotter::start_polling(int pps) {
-    pps = pps * savePlottingSpeed / 100;
-    Chip_RIT_Disable(LPC_RITIMER);
-    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
-    Chip_RIT_EnableCompClear(LPC_RITIMER);
-    Chip_RIT_SetCounter(LPC_RITIMER, 0);
-    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
-    Chip_RIT_Enable(LPC_RITIMER);
-    NVIC_EnableIRQ(RITIMER_IRQn);
-}
-
-void Plotter::stop_polling() {
-    NVIC_DisableIRQ(RITIMER_IRQn);
-    Chip_RIT_Disable(LPC_RITIMER);
-}
-
 void Plotter::setPenValue(uint8_t value) {
     if (status & PEN_INITIALISED) {
         LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
@@ -427,3 +375,72 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             break;
     }
 }
+
+void PlotterIsrFunction() {
+    if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction();
+}
+
+
+void Plotter::isrFunction() {
+    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
+	bool maxX = xMotor->readMaxLimit()    && (!xMotor->isOriginDirection());
+	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
+	bool maxY = yMotor->readMaxLimit()    && (!yMotor->isOriginDirection());
+	if (minX || maxX || minY || maxY || m_count > m_steps) {
+        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
+        stop_polling();
+        xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+	}
+
+    else {
+		bresenham();
+    	if(m_power > 0)
+    	       start_polling(m_pps);
+    	else{
+#if USE_ACCEL == 1
+    		start_polling(calculatePps());
+#else
+    		start_polling(m_pps);
+#endif /*USE_ACCEL*/
+    	}
+   }
+    portEND_SWITCHING_ISR(xHigherPriorityWoken);
+}
+
+extern "C" {
+    void RIT_IRQHandler(void) {
+        Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
+        if (RIT_Callback != nullptr) RIT_Callback();
+    }
+}
+
+void RIT_Start_polling(uint32_t count, int pps, RIT_void_t callback = RIT_Callback) {
+    RIT_Callback = callback;
+    RIT_Start_polling(pps);
+}
+
+void RIT_Start_polling(int pps) {
+    Chip_RIT_Disable(LPC_RITIMER);
+    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
+    Chip_RIT_EnableCompClear(LPC_RITIMER);
+    Chip_RIT_SetCounter(LPC_RITIMER, 0);
+    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+    Chip_RIT_Enable(LPC_RITIMER);
+    NVIC_EnableIRQ(RITIMER_IRQn);
+}
+
+void RIT_Stop_polling() {
+    NVIC_DisableIRQ(RITIMER_IRQn);
+    Chip_RIT_Disable(LPC_RITIMER);
+}
+
+void Plotter::start_polling(int pps) {
+    RIT_Callback = PlotterIsrFunction;
+    RIT_Start_polling(pps * savePlottingSpeed / 100);
+}
+
+void Plotter::stop_polling() {
+    RIT_Stop_polling();
+}
+
