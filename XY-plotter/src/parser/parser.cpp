@@ -61,7 +61,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
                 }
                 else{
-                	if(data.id != gcodes[6]->getId() || data.id != gcodes[7]->getId()){
+                	if(data.id != M10.getId() || data.id != M11.getId()){
                 		USB_send((uint8_t *) message, strlen(message));
                 		ITM_print("send OOKKK\n");
 
