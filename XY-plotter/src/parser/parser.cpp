@@ -39,7 +39,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
     uint8_t number;
     strncpy(gcode, str, 8);
     trimTrailing(gcode);
-    char message[] = "OK\n";
+    char message[] = "OK\r\n";
 
 
     char *token = strchr(gcode, ' ');
@@ -61,7 +61,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
                 }
                 else{
-                	if((letter != 'M') && ( number != 10 || number !=11)){
+                	if(data.id != gcodes[6]->getId() || data.id != gcodes[7]->getId()){
                 		USB_send((uint8_t *) message, strlen(message));
                 		ITM_print("send OOKKK\n");
 
@@ -71,8 +71,9 @@ void parseCode(const char *str, QueueHandle_t &queue) {
 
                 	}
                 }
-
             }
+
+
             else {
                 ITM_print("couldn't extract the data\n");
             }
@@ -86,6 +87,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
     }
     ITM_print("\n");
 }
+
 
 
 /*FUNCTIONS*/

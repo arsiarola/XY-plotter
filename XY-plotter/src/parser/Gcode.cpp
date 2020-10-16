@@ -47,8 +47,7 @@ const char* Gcode::toFormat(const Id& id_) {
                 "A%d B%d "     // X and Y direction
                 "H0 "          // undocumented
                 "S%u "         // speed
-                "U%u D%u\r\n"      // penup / down
-            	"OK\r\n"
+                "U%u D%u\r\nOK\r\n"      // penup / down
                 ;
 
         case M11:
