@@ -63,13 +63,16 @@ void Plotter::calibrate() {
     totalStepX = totalStepX / CALIBRATE_RUNS;
     totalStepY = totalStepY / CALIBRATE_RUNS;
 
+    // mdraw coordinate should be same as emulator or paper
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
     	savePlottingHeight = savePlottingWidth * totalStepY / totalStepX;
-    /* ITM_print("width = %d \n", savePlottingWidth); */
+
+    // Set step per mm to draw more accurate or same scale as svg picture
     setXStepInMM(savePlottingWidth);
     setYStepInMM(savePlottingHeight);
+
     ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
     ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
     ITM_print("calibration done\n");
@@ -333,6 +336,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
         case Gcode::Id::M1:
             UART_print("%u", data.data.m1.penPos);
             setPenValue(data.data.m1.penPos);
+            vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the pen up or down in the sim
             break;
 
         case Gcode::Id::M2:
