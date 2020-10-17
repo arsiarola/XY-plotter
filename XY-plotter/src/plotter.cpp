@@ -26,7 +26,7 @@ void Plotter::setMotors(Motor* xMotor_, Motor* yMotor_) {
     }
 }
 
-// TODO: calculate the area and put the values in savePlottingWidth and height
+//Calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
     if (MOTORS_NULL(xMotor, yMotor)) {
         return;
@@ -143,7 +143,7 @@ void Plotter::moveIfInArea(bool xStep, bool yStep) {
     currentY += yMotor->isOriginDirection() ? -BOOL_TO_NUM(yStep) : BOOL_TO_NUM(yStep);
 
 }
-
+// Bresenham's algorithm for drawing
 void Plotter::bresenham() {
     if (MOTORS_NULL(xMotor, yMotor)) {
         return;
@@ -228,7 +228,6 @@ void Plotter::plotLineRelative(float x2,float y2) {
     );
 }
 
-// TODO: since coordinates are given as floats think about error checking
 void Plotter::plotLine(float x1,float y1, float x2,float y2) {
     if ((status & CALIBRATED) == 0) {
         ITM_print("Plotter not calibrated exiting plotting\n");
@@ -453,12 +452,26 @@ void RIT_Start_polling(int pps, RIT_void_t callback) {
 }
 
 void RIT_Start_polling(int pps) {
+
+    // disable timer during configuration
     Chip_RIT_Disable(LPC_RITIMER);
+
+    // Determine approximate compare value based on clock rate and passed interval
     uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
+
+
+    // enable automatic clear on when compare value==timer value
+    // this makes interrupts trigger periodically
     Chip_RIT_EnableCompClear(LPC_RITIMER);
+
+    // reset the counter
     Chip_RIT_SetCounter(LPC_RITIMER, 0);
     Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+
+    // start counting
     Chip_RIT_Enable(LPC_RITIMER);
+
+    // Enable the interrupt signal in NVIC (the interrupt controller)
     NVIC_EnableIRQ(RITIMER_IRQn);
 }
 

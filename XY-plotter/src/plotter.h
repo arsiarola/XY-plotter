@@ -80,7 +80,7 @@ private:
     int savePlottingHeight    = 300;
     uint8_t savePlottingSpeed = 100; // in percent
 
-    //Pen / Laser
+    //Pen and Laser
     uint8_t savePenUp   = 160;
     uint8_t savePenDown = 90;
     uint8_t m_power;

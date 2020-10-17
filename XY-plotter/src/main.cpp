@@ -57,6 +57,8 @@ static DigitalIoPin* yDirection;
 #define STR_SIZE 64
 static void vTask1(void *pvParameters) {
 	vTaskDelay(configTICK_RATE_HZ / 10); /* wait until semaphores are created */
+
+	// Wait for limit detection
 	xEventGroupWaitBits(
 	    			eventBit,
 					INIT_VARIABLE_BIT,
@@ -102,6 +104,8 @@ static void vTask1(void *pvParameters) {
 
 static void vTask2(void *pvParameters) {
 	vTaskDelay(configTICK_RATE_HZ / 10); /* wait just in case */
+
+	// Wait for limit detection
     xEventGroupWaitBits(
     			eventBit,
 				INIT_VARIABLE_BIT,
@@ -169,6 +173,7 @@ static void vTask3(void *pvParameters) {
 	yStep = new DigitalIoPin(0, 27, DigitalIoPin::output, true);
 	yDirection = new DigitalIoPin(0, 28, DigitalIoPin::output, true);
 
+	// Detect which limit switch is connected  on which axis
 	while (lim1->read() || lim2->read() || lim3->read() || lim4->read()) {}
 
      getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
