@@ -207,7 +207,7 @@ int main() {
     // Initalise only freertos variables in main
 
 	eventBit = xEventGroupCreate();
-	queue = xQueueCreate(5, sizeof(Gcode::Data));
+	queue = xQueueCreate(10, sizeof(Gcode::Data));
 
 	Chip_RIT_Init(LPC_RITIMER);
 	Chip_RIT_Disable(LPC_RITIMER);
