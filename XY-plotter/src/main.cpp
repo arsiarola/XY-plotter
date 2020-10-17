@@ -92,9 +92,9 @@ static void vTask1(void *pvParameters) {
 				ITM_print("%s", buffer);
 				parseCode(buffer, queue);
 				bufferLength = 0;
-				buffer[0] = '\0';
-				strLength = 0;
-				str[0] = '\0';
+				buffer[0]    = '\0';
+				strLength    = 0;
+				str[0]       = '\0';
 			}
 		}
 	}
@@ -147,6 +147,7 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
         portEND_SWITCHING_ISR(xHigherPriorityWoken);
     });
     xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
+    // Back away one step
     currentDirection->write(!currentDirection->read());
     currentStepper->write(true);
     currentStepper->write(false);

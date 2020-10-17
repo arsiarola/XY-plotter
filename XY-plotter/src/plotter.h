@@ -5,11 +5,23 @@
 #include "semphr.h"
 #include "Gcode.h"
 
-#define  ACCEL_THRESHOLD_PERCENT 10
-#define DEFAULT_PPS 1500
+// RIT timer specific variables and functions
+using RIT_void_t = void (*)();
+extern volatile uint32_t RIT_Count;
+extern RIT_void_t RIT_Callback;
+extern SemaphoreHandle_t RIT_Semaphore;
+
+extern void PlotterIsrFunction();
+extern void RIT_Start_polling(uint32_t count, int pps, RIT_void_t);
+extern void RIT_Start_polling(int pps, RIT_void_t);
+extern void RIT_Start_polling(int pps);
+extern void RIT_Stop_polling();
+
 #define USE_ACCEL 0
+#define ACCEL_THRESHOLD_PERCENT 10
+#define DEFAULT_PPS 5000
 #define BOOL_TO_NUM(boolean) (boolean ? 1 : 0)
-#define MOTORS_NULL(motorx, motory) ((motorx == nullptr || motory == nullptr) ?\
+#define MOTORS_NULL(motorx_, motory_) ((motorx_ == nullptr || motory_ == nullptr) ?\
         (ITM_print("Atleast one motor not initalised! exiting %s\n", __FUNCTION__) || true) :\
         false)
 
@@ -100,19 +112,5 @@ private:
     int  m_pps = DEFAULT_PPS;
     int  m_threshold;
 };
-
-// RIT timer specific variables and functions
-using RIT_void_t = void (*)();
-extern volatile uint32_t RIT_Count;
-extern RIT_void_t RIT_Callback;
-extern SemaphoreHandle_t RIT_Semaphore;
-
-extern void PlotterIsrFunction();
-extern void RIT_Start_polling(uint32_t count, int pps, RIT_void_t);
-extern void RIT_Start_polling(int pps, RIT_void_t);
-extern void RIT_Start_polling(int pps);
-extern void RIT_Stop_polling();
-
-
 #endif /* PLOTTER_H_ */
 

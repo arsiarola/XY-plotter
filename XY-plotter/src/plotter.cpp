@@ -333,6 +333,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
         case Gcode::Id::M1:
             UART_print("%u", data.data.m1.penPos);
             setPenValue(data.data.m1.penPos);
+            vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the pen off in the sim
             break;
 
         case Gcode::Id::M2:
