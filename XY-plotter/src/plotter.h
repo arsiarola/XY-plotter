@@ -9,17 +9,27 @@
 #define DEFAULT_PPS 1500
 #define USE_ACCEL 0
 #define BOOL_TO_NUM(boolean) (boolean ? 1 : 0)
+#define MOTORS_NULL(motorx, motory) ((motorx == nullptr || motory == nullptr) ?\
+        (ITM_print("Atleast one motor not initalised! exiting %s\n", __FUNCTION__) || true) :\
+        false)
 
 #define PEN_INITIALISED   (1 << 0)
 #define LASER_INITIALISED (1 << 1)
 #define CALIBRATED        (1 << 2)
-#define LS_FREQ 1000
-#define LS_CYCLE 255
+#define CALIBRATE_RUNS 1
+
+#define TICKS_PER_SECOND  (1'000'000)
+#define LASER_FREQ 1000
+#define LASER_CYCLE 255
+#define PEN_FREQ 50
+#define minDuty (TICKS_PER_SECOND / 1000) // 1ms
+#define maxDuty (TICKS_PER_SECOND / 500 ) // 2ms
 
 class Plotter {
 public:
-    Plotter(Motor* xMotor, Motor* yMotor);
+    Plotter(Motor* xMotor_, Motor* yMotor_);
     static Plotter* activePlotter;
+    void setMotors(Motor* xMotor_, Motor* yMotor_);
     void calibrate();
     void start_polling(int pps_);
     void stop_polling();
@@ -71,10 +81,6 @@ private:
     uint8_t savePlottingSpeed = 100; // in percent
 
     //Pen / Laser
-    int ticksPerSecond  = 1'000'000;
-    int penFrequency    = 50;
-    int minDuty         = ticksPerSecond / 1000; // 1ms
-    int maxDuty         = ticksPerSecond / 500; // 2ms
     uint8_t savePenUp   = 160;
     uint8_t savePenDown = 90;
     uint8_t m_power;

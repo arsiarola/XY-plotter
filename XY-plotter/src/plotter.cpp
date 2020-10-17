@@ -13,16 +13,24 @@ uint32_t volatile RIT_Count = 0;
 void (*RIT_Callback)();
 SemaphoreHandle_t RIT_Semaphore = xSemaphoreCreateBinary();
 
-Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
-    xMotor(xMotor),
-    yMotor(yMotor)
+Plotter::Plotter(Motor* xMotor_, Motor* yMotor_)
 {
-    saveDirX = !xMotor->getOriginDirection();
-    saveDirY = !xMotor->getOriginDirection();
+    setMotors(xMotor_, yMotor_);
+}
+
+void Plotter::setMotors(Motor* xMotor_, Motor* yMotor_) {
+    xMotor = xMotor_; yMotor = yMotor_;
+    if (!MOTORS_NULL(xMotor_, yMotor_)) {
+        saveDirX = xMotor->getOriginDirection();
+        saveDirY = yMotor->getOriginDirection();
+    }
 }
 
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
     ITM_print("Starting calibration\n");
     totalStepX = 0;
     totalStepY = 0;
@@ -30,8 +38,7 @@ void Plotter::calibrate() {
     yStepMM    = 0;
     activePlotter = this;
     goToOrigin();
-    int times = 3;
-    for (int i = 0; i < times; ++i) {
+    for (int i = 0; i < CALIBRATE_RUNS; ++i) {
         RIT_Start_polling(500, []() {
             portBASE_TYPE xHigherPriorityWoken = pdFALSE;
             bool xStep = !activePlotter->xMotor->readMaxLimit();
@@ -53,14 +60,14 @@ void Plotter::calibrate() {
         goToOrigin();
     }
 
-    totalStepX = totalStepX / times;
-    totalStepY = totalStepY / times;
+    totalStepX = totalStepX / CALIBRATE_RUNS;
+    totalStepY = totalStepY / CALIBRATE_RUNS;
 
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
     	savePlottingHeight = savePlottingWidth * totalStepY / totalStepX;
-    ITM_print("width = %d \n", savePlottingWidth);
+    /* ITM_print("width = %d \n", savePlottingWidth); */
     setXStepInMM(savePlottingWidth);
     setYStepInMM(savePlottingHeight);
     ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
@@ -71,6 +78,9 @@ void Plotter::calibrate() {
 
 // Simple function for calibrating, should not be used for GCODES
 void Plotter::goToOrigin() {
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
     currentX   = 0;
     currentY   = 0;
 	xMotor->writeDirection(xMotor->getOriginDirection());
@@ -106,6 +116,9 @@ void Plotter::goToOrigin() {
 
 
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
     if (xMotor->isOriginDirection() && currentX < totalStepX && currentX > 0) {
         xMotor->writeStepper(xStep);
     }
@@ -129,8 +142,7 @@ void Plotter::moveIfInArea(bool xStep, bool yStep) {
 }
 
 void Plotter::bresenham() {
-    if (xMotor == nullptr || yMotor == nullptr) {
-        ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
+    if (MOTORS_NULL(xMotor, yMotor)) {
         return;
     }
 
@@ -154,10 +166,10 @@ void Plotter::bresenham() {
 
 
 void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
-    if (xMotor == nullptr || yMotor == nullptr) {
-        ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
+    if (MOTORS_NULL(xMotor, yMotor)) {
         return;
     }
+
     xMotor->writeDirection(x2_ > x1_ ? !xMotor->getOriginDirection() : xMotor->getOriginDirection());
     yMotor->writeDirection(y2_ > y1_ ? !yMotor->getOriginDirection() : yMotor->getOriginDirection());
     int x1      = x1_ < x2_ ? x1_ : x2_;
@@ -219,6 +231,11 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
         ITM_print("Plotter not calibrated exiting plotting\n");
         return;
     }
+
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
+
     initBresenhamValues(
         round(x1*xStepMM),
         round(y1*yStepMM),
@@ -249,8 +266,8 @@ void Plotter::initPen() {
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
-    LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
+    LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT0->MATCHREL[0].U = TICKS_PER_SECOND / PEN_FREQ - 1;
 	LPC_SCT1->MATCHREL[1].L = 0;
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
@@ -271,8 +288,8 @@ void Plotter::initLaser() {
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
-    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = LS_FREQ - 1; // Set the laser low
+    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT1->MATCHREL[0].U = LASER_FREQ - 1; // Set the laser low
 	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -286,7 +303,7 @@ void Plotter::initLaser() {
 
 void Plotter::setLaserPower(uint8_t pw){
 	m_power = pw;
-	LPC_SCT1->MATCHREL[1].L = m_power * LS_FREQ / LS_CYCLE;
+	LPC_SCT1->MATCHREL[1].L = m_power * LASER_FREQ / LASER_CYCLE;
     LPC_SCT1->OUT[0].SET = m_power > 0 ? (1 << 0) : 0; // Disable output when laser off
 
 }
@@ -345,6 +362,9 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             savePlottingHeight = data.data.m5.height;
             savePlottingWidth  = data.data.m5.width;
             savePlottingSpeed  = data.data.m5.speed;
+
+            xMotor->setOriginDirection(saveDirX); // update motor directions
+            yMotor->setOriginDirection(saveDirY);
             calibrate();
             break;
         case Gcode::Id::M10:
@@ -353,8 +373,8 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),
                         savePlottingWidth,
                         savePlottingHeight,
-                        saveDirX,
-                        saveDirY,
+                        saveDirX ? 1 : 0,
+                        saveDirY ? 1 : 0,
                         savePlottingSpeed,
                         savePenUp,
                         savePenDown

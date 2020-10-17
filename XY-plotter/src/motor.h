@@ -3,8 +3,8 @@
 
 #include "DigitalIoPin.h"
 
-#define CLOCKWISE false
-#define COUNTER_CLOCKWISE true
+#define CLOCKWISE 0
+#define COUNTER_CLOCKWISE 1
 
 class Motor {
 public:
@@ -19,8 +19,8 @@ public:
 
     bool readStepper()     { return stepper->read(); }
     bool readDirection()   { return direction->read(); }
-    bool readMinLimit()    { return minLimit->read(); }
-    bool readMaxLimit()    { return maxLimit->read(); }
+    bool readMinLimit()    { return originDirection == CLOCKWISE ? minLimit->read() : maxLimit->read(); }
+    bool readMaxLimit()    { return originDirection == CLOCKWISE ? maxLimit->read() : minLimit->read(); }
     bool readOriginLimit() { return readMinLimit(); } // "Alias" for readMinLimit
 
     void writeStepper(bool step)  { return stepper->write(step); }
@@ -29,6 +29,7 @@ public:
     bool isOriginDirection() { return direction->read() ==  originDirection; }
 
     bool getOriginDirection() { return originDirection; }
+    void setOriginDirection(bool dir) { originDirection = dir; }
 private:
     DigitalIoPin* stepper;
     DigitalIoPin* direction;

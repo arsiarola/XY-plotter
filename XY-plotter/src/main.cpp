@@ -13,9 +13,9 @@
 
 #include "main.h"
 #include "parser/parser.h"
+#include "parser/Gcode.h"
 #include "ITM_write.h"
 #include "printer.h"
-#include "parser/Gcode.h"
 #include "usb/user_vcom.h"
 #include "motor.h"
 #include "plotter.h"
@@ -110,16 +110,12 @@ static void vTask2(void *pvParameters) {
                 portMAX_DELAY);
 
 	Gcode::Data data;
-	plotter->calibrate();
-	plotter->initPen();
-	plotter->initLaser();
 	while (true) {
 		if (xQueueReceive(queue, &data,
 		portMAX_DELAY) == pdTRUE) {
 			UART_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
 			UART_print("\r\n");
 			plotter->handleGcodeData(data);
-			USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
 }
@@ -157,6 +153,11 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
 }
 
 static void vTask3(void *pvParameters) {
+    // Cannot use any motor functions but we can disable laser and put pen init pen to up position
+	plotter = new Plotter(nullptr, nullptr);
+	plotter->initLaser();
+	plotter->initPen();
+
 	lim1 = new DigitalIoPin(0, 9, DigitalIoPin::pullup, true);
 	lim2 = new DigitalIoPin(0, 29, DigitalIoPin::pullup, true);
 	lim3 = new DigitalIoPin(0, 0, DigitalIoPin::pullup, true);
@@ -185,8 +186,9 @@ static void vTask3(void *pvParameters) {
 
     xMotor = new Motor (xStep, xDirection, xLimMin, xLimMax, CLOCKWISE);
     yMotor = new Motor (yStep, yDirection, yLimMin, yLimMax, CLOCKWISE);
-	plotter = new Plotter(xMotor, yMotor);
+    plotter->setMotors(xMotor, yMotor);
 	Plotter::activePlotter = plotter;
+	plotter->calibrate();
 	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
 	vTaskSuspend(initVariablesHandle);
 }

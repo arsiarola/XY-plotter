@@ -4,6 +4,8 @@
 #include <string>
 #include <array>
 
+#define OK_MESSAGE "OK\r\n"
+
 // have mask just in case we use bigger value in parameter and for storing
 #define CREATE_GCODE_ID(letter, number) ((Gcode::Id)(((letter << 8) | (number)) & 0xFFFF))
 #define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
@@ -32,11 +34,11 @@ public:
             struct m2  { uint8_t savePenUp; uint8_t savePenDown; } m2;
             struct m4  { uint8_t laserPower; } m4;
             struct m5  {
+                bool dirX ;
+                bool dirY ;
                 uint32_t height ;
                 uint32_t width ;
                 uint8_t speed ;
-                bool dirX ;
-                bool dirY ;
             } m5;
             struct g1  { // g1 and g28 have same data
                 float moveX ;
