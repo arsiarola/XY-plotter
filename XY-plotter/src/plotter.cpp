@@ -271,8 +271,8 @@ void Plotter::initPen() {
     LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
     LPC_SCT0->MATCHREL[0].U = TICKS_PER_SECOND / PEN_FREQ - 1;
 	LPC_SCT1->MATCHREL[1].L = 0;
-	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
-    LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
+	LPC_SCT0->EVENT[0].STATE = 0x1;         		// event 0 happens in state 1
+    LPC_SCT0->EVENT[1].STATE = 0x1;         		// event 1 happens in state 1
     LPC_SCT0->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
     LPC_SCT0->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
     LPC_SCT0->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
@@ -291,9 +291,9 @@ void Plotter::initLaser() {
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
     LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = LASER_FREQ - 1; // Set the laser low
-	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
-    LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
+    LPC_SCT1->MATCHREL[0].U = LASER_FREQ - 1; 		// Set the laser period
+	LPC_SCT1->EVENT[0].STATE = 0x1;         		// event 0 happens in state 1
+    LPC_SCT1->EVENT[1].STATE = 0x1;         		// event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
     LPC_SCT1->EVENT[1].CTRL = (1 << 0) | (1 << 12); // match 1 condition only
     LPC_SCT1->OUT[0].SET = (1 << 0);                // event 0 will set SCTx_OUT0
@@ -345,7 +345,6 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             break;
 
         case Gcode::Id::M4:
-            // TODO: create function for setting laser power
             UART_print("%u", data.data.m4.laserPower);
             setLaserPower(data.data.m4.laserPower);
             vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the laser off in the sim
