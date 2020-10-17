@@ -421,6 +421,7 @@ void Plotter::isrFunction() {
 
     else {
 		bresenham();
+		// Laser running with the consistent velocity
     	if(m_power > 0)
     	       start_polling(m_pps);
     	else{
