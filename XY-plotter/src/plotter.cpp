@@ -63,6 +63,7 @@ void Plotter::calibrate() {
     totalStepX = totalStepX / CALIBRATE_RUNS;
     totalStepY = totalStepY / CALIBRATE_RUNS;
 
+
     // mdraw coordinate should be same as emulator or paper
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
@@ -80,6 +81,7 @@ void Plotter::calibrate() {
 }
 
 // Simple function for calibrating, should not be used for GCODES
+// The origin now is (1,1) to make sure it cannot hit limit switches
 void Plotter::goToOrigin() {
     if (MOTORS_NULL(xMotor, yMotor)) {
         return;
@@ -117,7 +119,8 @@ void Plotter::goToOrigin() {
     ITM_print("comeback to origin\n");
 }
 
-
+// The printable area is (totalStepX - 2) x (totalStepY - 2)
+// It cannot hit all limit switches then it cannot print in limit switches' area
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
     if (MOTORS_NULL(xMotor, yMotor)) {
         return;
