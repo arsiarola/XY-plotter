@@ -6,88 +6,102 @@
 #include <string.h>
 #include <math.h>
 
+#include "FreeRTOS.h"
+
 Plotter* Plotter::activePlotter = nullptr;
-Plotter::Plotter(Motor* xMotor, Motor* yMotor) :
-    xMotor(xMotor),
-    yMotor(yMotor)
-    {
-    	sbRIT = xSemaphoreCreateBinary();
-        saveDirX = !xMotor->getOriginDirection();
-        saveDirY = !xMotor->getOriginDirection();
+uint32_t volatile RIT_Count = 0;
+void (*RIT_Callback)();
+SemaphoreHandle_t RIT_Semaphore = xSemaphoreCreateBinary();
+
+Plotter::Plotter(Motor* xMotor_, Motor* yMotor_)
+{
+    setMotors(xMotor_, yMotor_);
 }
 
-void Plotter::resetStepValues() {
-    totalStepX = 0;
-    totalStepY = 0;
-    currentX   = 0;
-    currentY   = 0;
-    xStepMM    = 0;
-    yStepMM    = 0;
+void Plotter::setMotors(Motor* xMotor_, Motor* yMotor_) {
+    xMotor = xMotor_; yMotor = yMotor_;
+    if (!MOTORS_NULL(xMotor_, yMotor_)) {
+        saveDirX = xMotor->getOriginDirection();
+        saveDirY = yMotor->getOriginDirection();
+    }
 }
 
 // TODO: calculate the area and put the values in savePlottingWidth and height
 void Plotter::calibrate() {
-    resetStepValues();
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
+    ITM_print("Starting calibration\n");
+    totalStepX = 0;
+    totalStepY = 0;
+    xStepMM    = 0;
+    yStepMM    = 0;
+    activePlotter = this;
     goToOrigin();
+    for (int i = 0; i < CALIBRATE_RUNS; ++i) {
+        RIT_Start_polling(500, []() {
+            portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+            bool xStep = !activePlotter->xMotor->readMaxLimit();
+            bool yStep = !activePlotter->yMotor->readMaxLimit();
+            activePlotter->xMotor->writeStepper(xStep);
+            activePlotter->yMotor->writeStepper(yStep);
+            activePlotter->totalStepX += !activePlotter->xMotor->readMaxLimit() ? 1 : 0;
+            activePlotter->totalStepY += !activePlotter->yMotor->readMaxLimit() ? 1 : 0;
+            activePlotter->xMotor->writeStepper(false);
+            activePlotter->yMotor->writeStepper(false);
+            if(activePlotter->xMotor->readMaxLimit() && activePlotter->yMotor->readMaxLimit()){
+                RIT_Stop_polling();
+                xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+                ITM_print("Give, RIT-semaphore\n");
+            }
+            portEND_SWITCHING_ISR(xHigherPriorityWoken);
+        });
+        xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
+        goToOrigin();
+    }
 
-	bool xStep;
-	bool yStep;
-
-    int i = 0;
-    int times = 0;
-    do {
-        //ITM_print("%d: xStep=%\n", i, xStep);
-        xStep = !xMotor->readMaxLimit();
-        yStep = !yMotor->readMaxLimit();
-		xMotor->writeStepper(xStep);
-		yMotor->writeStepper(yStep);
-		vTaskDelay(1);
-		xMotor->writeStepper(false);
-		yMotor->writeStepper(false);
-        totalStepX += !xMotor->readMaxLimit() ? 1 : 0;
-        totalStepY += !yMotor->readMaxLimit() ? 1 : 0;
-		vTaskDelay(1);
-        ITM_print("%d: xStep=%\n", i++, xStep);
-        if(xMotor->readMaxLimit() && yMotor->readMaxLimit()){
-        	times++;
-            goToOrigin();
-        }
-
-    } while (times < 2);
-
-    totalStepX = totalStepX/2;
-    totalStepY = totalStepY/2;
+    totalStepX = totalStepX / CALIBRATE_RUNS;
+    totalStepY = totalStepY / CALIBRATE_RUNS;
 
     if(totalStepX>totalStepY)
     	savePlottingWidth = savePlottingHeight * totalStepX / totalStepY;
     else
     	savePlottingHeight = savePlottingWidth * totalStepY / totalStepX;
-    ITM_print("width = %d \n", savePlottingWidth);
+    /* ITM_print("width = %d \n", savePlottingWidth); */
     setXStepInMM(savePlottingWidth);
     setYStepInMM(savePlottingHeight);
-    ITM_print("calibration done\n");
     ITM_print("xTotal=%d, yTotal=%d\n", totalStepX, totalStepY);
     ITM_print("xMM=%f, yMM=%f\n", xStepMM, yStepMM);
+    ITM_print("calibration done\n");
     status |= CALIBRATED;
 }
 
 // Simple function for calibrating, should not be used for GCODES
 void Plotter::goToOrigin() {
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
+    currentX   = 0;
+    currentY   = 0;
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
-	bool xStep;
-	bool yStep;
 
-    do {
-        xStep = !xMotor->readOriginLimit();
-        yStep = !yMotor->readOriginLimit();
-		xMotor->writeStepper(xStep);
-		yMotor->writeStepper(yStep);
-		vTaskDelay(1);
-		xMotor->writeStepper(false);
-		yMotor->writeStepper(false);
-		vTaskDelay(1);
-    } while (xStep || yStep);
+    RIT_Start_polling(500, []() {
+        portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+        bool xStep = !activePlotter->xMotor->readOriginLimit();
+        bool yStep = !activePlotter->yMotor->readOriginLimit();
+		activePlotter->xMotor->writeStepper(xStep);
+		activePlotter->yMotor->writeStepper(yStep);
+		activePlotter->xMotor->writeStepper(false);
+		activePlotter->yMotor->writeStepper(false);
+        if(!xStep && !yStep){
+            RIT_Stop_polling();
+            xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+            ITM_print("Give, RIT-semaphore\n");
+        }
+        portEND_SWITCHING_ISR(xHigherPriorityWoken);
+    });
+    xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 
 	xMotor->writeDirection(!xMotor->getOriginDirection());
 	yMotor->writeDirection(!yMotor->getOriginDirection());
@@ -102,6 +116,9 @@ void Plotter::goToOrigin() {
 
 
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
     if (xMotor->isOriginDirection() && currentX < totalStepX && currentX > 0) {
         xMotor->writeStepper(xStep);
     }
@@ -125,8 +142,7 @@ void Plotter::moveIfInArea(bool xStep, bool yStep) {
 }
 
 void Plotter::bresenham() {
-    if (xMotor == nullptr || yMotor == nullptr) {
-        ITM_print("Atleast one motor not initalised! exiting bresenham()\n");
+    if (MOTORS_NULL(xMotor, yMotor)) {
         return;
     }
 
@@ -150,10 +166,10 @@ void Plotter::bresenham() {
 
 
 void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
-    if (xMotor == nullptr || yMotor == nullptr) {
-        ITM_print("Atleast one motor not initalised! exiting value initialisation\n");
+    if (MOTORS_NULL(xMotor, yMotor)) {
         return;
     }
+
     xMotor->writeDirection(x2_ > x1_ ? !xMotor->getOriginDirection() : xMotor->getOriginDirection());
     yMotor->writeDirection(y2_ > y1_ ? !yMotor->getOriginDirection() : yMotor->getOriginDirection());
     int x1      = x1_ < x2_ ? x1_ : x2_;
@@ -191,43 +207,6 @@ int Plotter::calculatePps() {
     return pps;
 }
 
-void Plotter::isrFunction(portBASE_TYPE& xHigherPriorityWoken ) {
-	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
-	bool maxX = xMotor->readMaxLimit()    && (!xMotor->isOriginDirection());
-	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
-	bool maxY = yMotor->readMaxLimit()    && (!yMotor->isOriginDirection());
-	if (minX || maxX || minY || maxY || m_count > m_steps) {
-        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
-        stop_polling();
-        xSemaphoreGiveFromISR(sbRIT, &xHigherPriorityWoken);
-	}
-
-    else {
-		bresenham();
-    	if(m_power > 0)
-    	       start_polling(m_pps);
-    	else{
-#if USE_ACCEL == 1
-    		start_polling(calculatePps());
-#else
-    		start_polling(m_pps);
-#endif /*USE_ACCEL*/
-    	}
-   }
-}
-
-extern "C" {
-    void RIT_IRQHandler(void) {
-        Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
-        portBASE_TYPE xHigherPriorityWoken = pdFALSE;
-        if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction(xHigherPriorityWoken);
-
-        // End the ISR and (possibly) do a context switch
-        portEND_SWITCHING_ISR(xHigherPriorityWoken);
-    }
-}
-
-
 void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
         x1 + ((float)currentX/xStepMM),
@@ -252,6 +231,11 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
         ITM_print("Plotter not calibrated exiting plotting\n");
         return;
     }
+
+    if (MOTORS_NULL(xMotor, yMotor)) {
+        return;
+    }
+
     initBresenhamValues(
         round(x1*xStepMM),
         round(y1*yStepMM),
@@ -263,25 +247,8 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
 #else
        start_polling(m_pps);
 #endif /*USE_ACCEL*/
-    xSemaphoreTake(sbRIT, portMAX_DELAY);
+    xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 }
-
-void Plotter::start_polling(int pps) {
-    pps = pps * savePlottingSpeed / 100;
-    Chip_RIT_Disable(LPC_RITIMER);
-    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
-    Chip_RIT_EnableCompClear(LPC_RITIMER);
-    Chip_RIT_SetCounter(LPC_RITIMER, 0);
-    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
-    Chip_RIT_Enable(LPC_RITIMER);
-    NVIC_EnableIRQ(RITIMER_IRQn);
-}
-
-void Plotter::stop_polling() {
-    NVIC_DisableIRQ(RITIMER_IRQn);
-    Chip_RIT_Disable(LPC_RITIMER);
-}
-
 void Plotter::setPenValue(uint8_t value) {
     if (status & PEN_INITIALISED) {
         LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
@@ -299,8 +266,8 @@ void Plotter::initPen() {
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT0->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
-    LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT0->MATCHREL[0].U = ticksPerSecond / penFrequency - 1;
+    LPC_SCT0->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT0->MATCHREL[0].U = TICKS_PER_SECOND / PEN_FREQ - 1;
 	LPC_SCT1->MATCHREL[1].L = 0;
 	LPC_SCT0->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT0->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
@@ -321,8 +288,8 @@ void Plotter::initLaser() {
 	#endif
 	Chip_Clock_DisablePeriphClock(SYSCTL_CLOCK_SWM);
     LPC_SCT1->CONFIG |= SCT_CONFIG_32BIT_COUNTER | SCT_CONFIG_AUTOLIMIT_L;
-    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / ticksPerSecond - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
-    LPC_SCT1->MATCHREL[0].U = LS_FREQ - 1; // Set the laser low
+    LPC_SCT1->CTRL_U = SCT_CTRL_PRE_L(SystemCoreClock / TICKS_PER_SECOND - 1) | SCT_CTRL_CLRCTR_L | SCT_CTRL_HALT_L;
+    LPC_SCT1->MATCHREL[0].U = LASER_FREQ - 1; // Set the laser low
 	LPC_SCT1->EVENT[0].STATE = 0x1;         // event 0 happens in state 1
     LPC_SCT1->EVENT[1].STATE = 0x1;         // event 1 happens in state 1
     LPC_SCT1->EVENT[0].CTRL = (0 << 0) | (1 << 12); // match 0 condition only
@@ -336,7 +303,7 @@ void Plotter::initLaser() {
 
 void Plotter::setLaserPower(uint8_t pw){
 	m_power = pw;
-	LPC_SCT1->MATCHREL[1].L = m_power * LS_FREQ / LS_CYCLE;
+	LPC_SCT1->MATCHREL[1].L = m_power * LASER_FREQ / LASER_CYCLE;
     LPC_SCT1->OUT[0].SET = m_power > 0 ? (1 << 0) : 0; // Disable output when laser off
 
 }
@@ -395,6 +362,9 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             savePlottingHeight = data.data.m5.height;
             savePlottingWidth  = data.data.m5.width;
             savePlottingSpeed  = data.data.m5.speed;
+
+            xMotor->setOriginDirection(saveDirX); // update motor directions
+            yMotor->setOriginDirection(saveDirY);
             calibrate();
             break;
         case Gcode::Id::M10:
@@ -403,8 +373,8 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),
                         savePlottingWidth,
                         savePlottingHeight,
-                        saveDirX,
-                        saveDirY,
+                        saveDirX ? 1 : 0,
+                        saveDirY ? 1 : 0,
                         savePlottingSpeed,
                         savePenUp,
                         savePenDown
@@ -427,3 +397,77 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             break;
     }
 }
+
+void PlotterIsrFunction() {
+    if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction();
+}
+
+
+void Plotter::isrFunction() {
+    portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+	bool minX = xMotor->readOriginLimit() && (xMotor->isOriginDirection());
+	bool maxX = xMotor->readMaxLimit()    && (!xMotor->isOriginDirection());
+	bool minY = yMotor->readOriginLimit() && (yMotor->isOriginDirection());
+	bool maxY = yMotor->readMaxLimit()    && (!yMotor->isOriginDirection());
+	if (minX || maxX || minY || maxY || m_count > m_steps) {
+        ITM_print("currentX=%d, currentY=%d\n", currentX, currentY);
+        stop_polling();
+        xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+	}
+
+    else {
+		bresenham();
+    	if(m_power > 0)
+    	       start_polling(m_pps);
+    	else{
+#if USE_ACCEL == 1
+    		start_polling(calculatePps());
+#else
+    		start_polling(m_pps);
+#endif /*USE_ACCEL*/
+    	}
+   }
+    portEND_SWITCHING_ISR(xHigherPriorityWoken);
+}
+
+extern "C" {
+    void RIT_IRQHandler(void) {
+        Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
+        if (RIT_Callback != nullptr) RIT_Callback();
+    }
+}
+
+void RIT_Start_polling(uint32_t count, int pps, RIT_void_t callback = RIT_Callback) {
+    RIT_Count = count;
+    RIT_Start_polling(pps, callback);
+}
+
+void RIT_Start_polling(int pps, RIT_void_t callback) {
+    RIT_Callback = callback;
+    RIT_Start_polling(pps);
+}
+
+void RIT_Start_polling(int pps) {
+    Chip_RIT_Disable(LPC_RITIMER);
+    uint64_t cmp_value = (uint64_t) Chip_Clock_GetSystemClockRate() / pps;
+    Chip_RIT_EnableCompClear(LPC_RITIMER);
+    Chip_RIT_SetCounter(LPC_RITIMER, 0);
+    Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+    Chip_RIT_Enable(LPC_RITIMER);
+    NVIC_EnableIRQ(RITIMER_IRQn);
+}
+
+void RIT_Stop_polling() {
+    NVIC_DisableIRQ(RITIMER_IRQn);
+    Chip_RIT_Disable(LPC_RITIMER);
+}
+
+void Plotter::start_polling(int pps) {
+    RIT_Callback = PlotterIsrFunction;
+    RIT_Start_polling(pps * savePlottingSpeed / 100);
+}
+
+void Plotter::stop_polling() {
+    RIT_Stop_polling();
+}
+

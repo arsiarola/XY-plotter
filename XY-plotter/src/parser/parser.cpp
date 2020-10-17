@@ -33,19 +33,12 @@ static Gcode *gcodes[GCODE_SIZE] = {
 };
 
 void parseCode(const char *str, QueueHandle_t &queue) {
-    char gcode[8];
+    char gcode[5];
     bool found = false;
     char letter;
     uint8_t number;
-    strncpy(gcode, str, 8);
-    trimTrailing(gcode);
-    char message[] = "OK\r\n";
+    strncpy(gcode, str, 5);
 
-
-    char *token = strchr(gcode, ' ');
-    if (token != NULL) {
-        gcode[token-gcode] = '\0';
-    }
     if (sscanf(gcode, "%c%hhu", &letter, &number) != 2) {
         ITM_print("Letter and/or number not found\n");
         return;
@@ -60,17 +53,6 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 if (xQueueSendToBack(queue, &data, portMAX_DELAY) != pdTRUE) {
                 	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
                 }
-                else{
-                	if(data.id != M10.getId() && data.id != M11.getId()){
-                		USB_send((uint8_t *) message, strlen(message));
-                		ITM_print("send OOKKK\n");
-
-                	}
-                	else{
-            			ITM_print("NOTTT send   OOKKK\n");
-
-                	}
-                }
             }
 
 
@@ -79,6 +61,16 @@ void parseCode(const char *str, QueueHandle_t &queue) {
             }
             break;
         }
+    }
+
+    // NO matter if we found it or not send OK if not M10 or M11
+    // Since even if invalid data we cannot just get stuck on to this
+	if (data.id != M10.getId() && data.id != M11.getId()) {
+        USB_send((uint8_t *) OK_MESSAGE, strlen(OK_MESSAGE));
+        ITM_print("send OOKKK\n");
+    }
+    else{
+        ITM_print("NOTTT send   OOKKK\n");
     }
 
     if (!found) {
@@ -195,27 +187,3 @@ bool g28ExtractData (const char *str) {
     data.data.g1.relative = false;
     return true;
 }
-
-void trimTrailing(char * str)
-{
-    int index, i;
-
-    /* Set default index */
-    index = -1;
-
-    /* Find last index of non-white space character */
-    i = 0;
-    while (str[i] != '\0')
-    {
-        if (str[i] != ' ' && str[i] != '\t' && str[i] != '\n')
-        {
-            index= i;
-        }
-
-        i++;
-    }
-
-    /* Mark next character to last non-white space character as NULL */
-    str[index + 1] = '\0';
-}
-

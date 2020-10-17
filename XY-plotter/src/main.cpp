@@ -13,9 +13,9 @@
 
 #include "main.h"
 #include "parser/parser.h"
+#include "parser/Gcode.h"
 #include "ITM_write.h"
 #include "printer.h"
-#include "parser/Gcode.h"
 #include "usb/user_vcom.h"
 #include "motor.h"
 #include "plotter.h"
@@ -43,10 +43,10 @@ static Motor* xMotor;
 static Motor* yMotor;
 static Plotter* plotter;
 
-DigitalIoPin* lim1;
-DigitalIoPin* lim2;
-DigitalIoPin* lim3;
-DigitalIoPin* lim4;
+static DigitalIoPin* lim1;
+static DigitalIoPin* lim2;
+static DigitalIoPin* lim3;
+static DigitalIoPin* lim4;
 
 static DigitalIoPin* xStep;
 static DigitalIoPin* xDirection;
@@ -116,35 +116,48 @@ static void vTask2(void *pvParameters) {
 			UART_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
 			UART_print("\r\n");
 			plotter->handleGcodeData(data);
-			//USB_send((uint8_t *) "OK\r\n", 4);
 		}
 	}
 }
 
-DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction, bool dir) {
-    direction->write(dir);
-    DigitalIoPin* ret;
-	while (1) {
-        if     (lim1->read()) { ret = lim1; break; }
-        else if(lim2->read()) { ret = lim2; break; }
-        else if(lim3->read()) { ret = lim3; break; }
-        else if(lim4->read()) { ret = lim4; break; }
-		step->write(true);
-		vTaskDelay(1);
-		step->write(false);
-		vTaskDelay(1);
-	}
+static DigitalIoPin* currentStepper;
+static DigitalIoPin* currentDirection;
+static DigitalIoPin* hitLimitSwitch;
 
-    // Why an earth do we need to move steps back for the y axis
-    direction->write(!dir);
-    step->write(true);
-    vTaskDelay(1);
-    step->write(false);
-    vTaskDelay(1);
-    return ret;
+DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction, bool dir) {
+    currentStepper = step;
+    currentDirection = direction;
+    direction->write(dir);
+    hitLimitSwitch = nullptr;
+    RIT_Start_polling(500, []() {
+        portBASE_TYPE xHigherPriorityWoken = pdFALSE;
+        if      (lim1->read()) hitLimitSwitch = lim1;
+        else if (lim2->read()) hitLimitSwitch = lim2;
+        else if (lim3->read()) hitLimitSwitch = lim3;
+        else if (lim4->read()) hitLimitSwitch = lim4;
+
+        if (hitLimitSwitch != nullptr) {
+            RIT_Stop_polling();
+            xSemaphoreGiveFromISR(RIT_Semaphore, &xHigherPriorityWoken);
+        }
+        else {
+            currentStepper->write(true);
+            currentStepper->write(false);
+        }
+        portEND_SWITCHING_ISR(xHigherPriorityWoken);
+    });
+    xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
+    currentDirection->write(!currentDirection->read());
+    currentStepper->write(true);
+    currentStepper->write(false);
 }
 
 static void vTask3(void *pvParameters) {
+    // Cannot use any motor functions but we can disable laser and put pen init pen to up position
+	plotter = new Plotter(nullptr, nullptr);
+	plotter->initLaser();
+	plotter->initPen();
+
 	lim1 = new DigitalIoPin(0, 9, DigitalIoPin::pullup, true);
 	lim2 = new DigitalIoPin(0, 29, DigitalIoPin::pullup, true);
 	lim3 = new DigitalIoPin(0, 0, DigitalIoPin::pullup, true);
@@ -157,22 +170,25 @@ static void vTask3(void *pvParameters) {
 	yDirection = new DigitalIoPin(0, 28, DigitalIoPin::output, true);
 
 	while (lim1->read() || lim2->read() || lim3->read() || lim4->read()) {}
-    DigitalIoPin* yLimMin = getCorrespondingLimit(yStep, yDirection, CLOCKWISE);
-    DigitalIoPin* yLimMax = getCorrespondingLimit(yStep, yDirection, COUNTER_CLOCKWISE);
 
-    DigitalIoPin* xLimMin = getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
-    DigitalIoPin* xLimMax = getCorrespondingLimit(xStep, xDirection, COUNTER_CLOCKWISE);
+     getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
+     DigitalIoPin* xLimMin = hitLimitSwitch;
+
+     getCorrespondingLimit(xStep, xDirection, COUNTER_CLOCKWISE);
+     DigitalIoPin* xLimMax = hitLimitSwitch;
+
+     getCorrespondingLimit(yStep, yDirection, CLOCKWISE);
+     DigitalIoPin* yLimMin = hitLimitSwitch;
+
+     getCorrespondingLimit(yStep, yDirection, COUNTER_CLOCKWISE);
+     DigitalIoPin* yLimMax = hitLimitSwitch;
+
 
     xMotor = new Motor (xStep, xDirection, xLimMin, xLimMax, CLOCKWISE);
     yMotor = new Motor (yStep, yDirection, yLimMin, yLimMax, CLOCKWISE);
-	plotter = new Plotter(xMotor, yMotor);
+    plotter->setMotors(xMotor, yMotor);
 	Plotter::activePlotter = plotter;
-
-	plotter->initPen();
-	plotter->initLaser();
-	// Init PWM before doing calibrate to make sure pen and laser is off
 	plotter->calibrate();
-
 	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
 	vTaskSuspend(initVariablesHandle);
 }

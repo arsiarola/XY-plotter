@@ -11,32 +11,32 @@ const char* Gcode::toFormat(const Id& id_) {
         case G1:
             return
                 "G1 "
-                "X" "%f " //X85.14
-                "Y" "%f " //Y117.29
-                "A" "%d"; //A0
+                "X%f " //X85.14
+                "Y%f " //Y117.29
+                "A%d"; //A0
 
         case G28:
             return "G28 ";
 
         case M1:
-            return "M1 " "%u";
+            return "M1 %u";
 
         case M2:
             return
                 "M2 "
-                "U" "%u "
-                "D" "%u";
+                "U%u "
+                "D%u";
         case M4:
             return "M4 " "%u";
 
         case M5:
             return
                 "M5 "
-                "A" "%d " //A0
-                "B" "%d " //B0
-                "H" "%u " //H310
-                "W" "%u " //W380
-                "S" "%u"; //S80
+                "A%d " //A0
+                "B%d " //B0
+                "H%d " //H310
+                "W%d " //W380
+                "S%u"; //S80
 
         case M10:
             return
@@ -48,11 +48,11 @@ const char* Gcode::toFormat(const Id& id_) {
                 "H0 "          // undocumented
                 "S%u "         // speed
                 "U%u D%u\r\n"      // penup / down
-            	"OK\r\n"
+				OK_MESSAGE
                 ;
 
         case M11:
-            return "M11 %d %d %d %d\r\nOK\r\n";
+            return "M11 %d %d %d %d\r\n" OK_MESSAGE;
 
         default:
             return "";
