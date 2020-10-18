@@ -53,6 +53,16 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 if (xQueueSendToBack(queue, &data, portMAX_DELAY) != pdTRUE) {
                 	ITM_print("Error: Couldnt send data to queue even though waited for portMAX_DELAY\n");
                 }
+
+                // if not M10 or M11 (these will send ok from plotter with values)
+            	if (data.id != M10.getId() && data.id != M11.getId()) {
+                    USB_send((uint8_t *) OK_MESSAGE, strlen(OK_MESSAGE));
+                    ITM_print("Send OK\n");
+                }
+                else{
+                    ITM_print("Dont send OK\n");
+                }
+
             }
 
             else {
@@ -62,15 +72,6 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         }
     }
 
-    // NO matter if we found gcode or not, send OK, if not M10 or M11 (these will send ok from plotter with values)
-    // Since even if invalid data we cannot just get stuck on to this
-	if (data.id != M10.getId() && data.id != M11.getId()) {
-        USB_send((uint8_t *) OK_MESSAGE, strlen(OK_MESSAGE));
-        ITM_print("Send OK\n");
-    }
-    else{
-        ITM_print("Dont send OK\n");
-    }
 
     if (!found) {
         ITM_print("Error: ");
