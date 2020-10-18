@@ -62,8 +62,8 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         }
     }
 
-    // NO matter if we found gcode or not, send OK, if not M10 or M11 (these will send ok from plotter with values)
-    // Since even if invalid data we cannot just get stuck on to this
+    // NO matter if gcode is found or not, send OK, if not M10 or M11 (these will send ok from plotter with values)
+    // Since even if invalid data, the code cannot get stuck on to this
 	if (data.id != M10.getId() && data.id != M11.getId()) {
         USB_send((uint8_t *) OK_MESSAGE, strlen(OK_MESSAGE));
         ITM_print("Send OK\n");
@@ -155,7 +155,6 @@ bool m10ExtractData (const char *str) {
 /*M11: Limit switch status query*/
 bool m11ExtractData (const char *str) {
     ITM_print("M11\n");
-    //TODO: get limit switch statuses from plotter and print them to mdraw
     return true;
 }
 

@@ -487,7 +487,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
 		break;
 
 	case Gcode::Id::M10:
-		// do while 0 so we can create the local buffer variable
+		// do while 0 so the local buffer variable can be created
 		do {
 			char buffer[64];
 			snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),

@@ -7,7 +7,7 @@
 #define OK_MESSAGE "OK\r\n"
 
 // Create unique 16 bit ID char letter being the 8 MSB and number 8 LSB
-// Type cast so we dont have to remember it in code
+// Type cast so it's easier to use it in code
 #define CREATE_GCODE_ID(letter, number) ((Gcode::Id)(((letter << 8) | (number)) & 0xFFFF))
 #define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
 #define GET_NUMBER_FROM_ID(id) ((id)      & 0xFF)
@@ -15,7 +15,7 @@
 class Gcode {
 public:
     using array = std::array<char, 4>;
-    //Letter and number enums are there just to limit our options so we use correct gcodes
+    //Letter and number enums are there just to limit options for correct gcodes
     // The class could handle all combinations of letters and numbers 0-255
     enum Letter : char { M = 'M', G = 'G' };
     enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
@@ -30,7 +30,7 @@ public:
         M11 = CREATE_GCODE_ID(Letter::M, Number::_11)
     };
 
-    // Union used for holding actual data since we will be using one of the structs at a time
+    // Union used for holding actual data since one of the structs can be used at a time
     // This will greatly reduce the Freertos Queue size
     typedef struct Data {
         Id id;
