@@ -72,7 +72,6 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         }
     }
 
-
     if (!found) {
         ITM_print("Error: ");
         ITM_print("%s is unknown Gcode\n", gcode);
@@ -156,7 +155,6 @@ bool m10ExtractData (const char *str) {
 /*M11: Limit switch status query*/
 bool m11ExtractData (const char *str) {
     ITM_print("M11\n");
-    //TODO: get limit switch statuses from plotter and print them to mdraw
     return true;
 }
 

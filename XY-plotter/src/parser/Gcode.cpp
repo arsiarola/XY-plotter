@@ -59,7 +59,7 @@ const char* Gcode::toFormat(const Id& id_) {
     }
 }
 
-// std::array so we can easily return an array allocated from stack which seems impossible in C
+// std::array so it easily return an array allocated from stack which seems impossible in C
 Gcode::array Gcode::toArray(const Letter& letter, const Number& number) {
     std::array<char, 4> str;
     std::snprintf(str.data(), 4, "%c%u", letter, number);
