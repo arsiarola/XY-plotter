@@ -7,6 +7,7 @@
 #define OK_MESSAGE "OK\r\n"
 
 // have mask just in case we use bigger value in parameter and for storing
+// Type cast so we dont have to remember it in code
 #define CREATE_GCODE_ID(letter, number) ((Gcode::Id)(((letter << 8) | (number)) & 0xFFFF))
 #define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
 #define GET_NUMBER_FROM_ID(id) ((id)      & 0xFF)
@@ -14,6 +15,8 @@
 class Gcode {
 public:
     using array = std::array<char, 4>;
+    //Letter and number are there just to limit the options so we use correct gcodes
+    // The class could handle all combinations of letters and 0-255
     enum Letter : char { M = 'M', G = 'G' };
     enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
     enum Id : uint16_t {
@@ -33,7 +36,7 @@ public:
             struct m1  { uint8_t penPos; } m1;
             struct m2  { uint8_t savePenUp; uint8_t savePenDown; } m2;
             struct m4  { uint8_t laserPower; } m4;
-            struct m5  {
+            struct m5  { // if changing the alignment so speed if after dirY for less memory it cant get width data
                 bool dirX ;
                 bool dirY ;
                 uint32_t height ;

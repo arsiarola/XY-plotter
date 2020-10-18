@@ -18,6 +18,7 @@ Plotter::Plotter(Motor* xMotor_, Motor* yMotor_)
     setMotors(xMotor_, yMotor_);
 }
 
+// Assign motors
 void Plotter::setMotors(Motor* xMotor_, Motor* yMotor_) {
     xMotor = xMotor_; yMotor = yMotor_;
     if (!MOTORS_NULL(xMotor_, yMotor_)) {
@@ -146,7 +147,10 @@ void Plotter::moveIfInArea(bool xStep, bool yStep) {
     currentY += yMotor->isOriginDirection() ? -BOOL_TO_NUM(yStep) : BOOL_TO_NUM(yStep);
 
 }
+
 // Bresenham's algorithm for drawing
+// Everytime previous x/y is different from previous x/y move corresponding motor
+// and change currentX/Y accordingly
 void Plotter::bresenham() {
     if (MOTORS_NULL(xMotor, yMotor)) {
         return;
@@ -197,6 +201,7 @@ void Plotter::initBresenhamValues(int x1_,int y1_, int x2_,int y2_) {
     ITM_print("%d,%d %d,%d\n", x1,y1, x2,y2);
 }
 
+// return what the pps for should be according the m_count proportional to m_steps
 int Plotter::calculatePps() {
     int pps;
     if ((m_steps - m_count) < m_threshold) {
@@ -208,7 +213,7 @@ int Plotter::calculatePps() {
     else
         pps = m_pps;
 
-    // Set to minimum value pps not in bounds
+    // Set to minimum value if pps not in bounds
     if (pps <= 0) pps = m_pps * ACCEL_THRESHOLD_PERCENT / 100;
     return pps;
 }
@@ -241,6 +246,7 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
         return;
     }
 
+// Parameters are in mdraw proportions so they have to be converted to plotter proportions
     initBresenhamValues(
         round(x1*xStepMM),
         round(y1*yStepMM),
@@ -254,6 +260,7 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
 #endif /*USE_ACCEL*/
     xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 }
+
 void Plotter::setPenValue(uint8_t value) {
     if (status & PEN_INITIALISED) {
         LPC_SCT0->MATCHREL[1].U = value * (maxDuty-minDuty) / 255 + minDuty;;
@@ -372,6 +379,7 @@ void Plotter::handleGcodeData(const Gcode::Data &data) {
             yMotor->setOriginDirection(saveDirY);
             calibrate();
             break;
+
         case Gcode::Id::M10:
         	do {
             char buffer[64];

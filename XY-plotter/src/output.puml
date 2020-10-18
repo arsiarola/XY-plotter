@@ -1,0 +1,271 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace ::Gcode {
+	class Data {
+		+id : Id
+		+data : union data
+	}
+}
+
+
+class DigitalIoPin {
+	+DigitalIoPin(int port, int pin, pinMode mode, bool invert)
+	+~DigitalIoPin()
+	+read() : bool
+	-pin : int
+	-port : int
+	+write(bool value) : void
+}
+
+
+class Fmutex {
+	+Fmutex()
+	+~Fmutex()
+	-mutex : SemaphoreHandle_t
+	+lock() : void
+	+unlock() : void
+}
+
+
+class Gcode {
+	+Gcode(Letter letter_, Number number_, bool(*functionPtr_)(constchar*str))
+	+~Gcode()
+	-id : Id
+	-letter : Letter
+	-number : Number
+	+{static} toString(const Letter& letter, const Number& number) : array
+	+{static} toString(const Id& id) : array
+	+toString() : array
+	+callback(const char* str) : bool
+	-functionPtr : bool (* ) ( const char* str )
+	+getId() : char*
+	+{static} toFormat(const Id& id) : char*
+	+toFormat() : char*
+	+array : using
+}
+
+
+namespace ::Gcode::Gcode::Data {
+	class Gcode::Data::union data {
+		+g1 : g1
+		+m1 : m1
+		+m2 : m2
+		+m4 : m4
+		+m5 : m5
+	}
+}
+
+
+namespace ::Gcode::Gcode::Data::Gcode::Data::union data {
+	class Gcode::Data::union data::g1 {
+		+relative : bool
+		+moveX : float
+		+moveY : float
+	}
+}
+
+
+namespace ::Gcode::Gcode::Data::Gcode::Data::union data {
+	class Gcode::Data::union data::m1 {
+		+penPos : uint8_t
+	}
+}
+
+
+namespace ::Gcode::Gcode::Data::Gcode::Data::union data {
+	class Gcode::Data::union data::m2 {
+		+savePenDown : uint8_t
+		+savePenUp : uint8_t
+	}
+}
+
+
+namespace ::Gcode::Gcode::Data::Gcode::Data::union data {
+	class Gcode::Data::union data::m4 {
+		+laserPower : uint8_t
+	}
+}
+
+
+namespace ::Gcode::Gcode::Data::Gcode::Data::union data {
+	class Gcode::Data::union data::m5 {
+		+dirX : bool
+		+dirY : bool
+		+height : uint32_t
+		+width : uint32_t
+		+speed : uint8_t
+	}
+}
+
+
+class LpcPinMap {
+	+pin : int
+	+port : int
+}
+
+
+class LpcUart {
+	+LpcUart(const LpcUartConfig& cfg)
+	+LpcUart(const LpcUart &)
+	+~LpcUart()
+	-read_mutex : Fmutex
+	-write_mutex : Fmutex
+	-irqn : IRQn_Type
+	-uart : LPC_USART_T*
+	-rxring : RINGBUFF_T
+	-txring : RINGBUFF_T
+	-notify_rx : TaskHandle_t
+	-notify_tx : TaskHandle_t
+	+rxbreak() : bool
+	+txempty() : bool
+	+free() : int
+	+peek() : int
+	+read(char& c) : int
+	+read(char* buffer, int len) : int
+	+read(char* buffer, int len, TickType_t total_timeout, TickType_t ic_timeout) : int
+	+write(char c) : int
+	+write(const char* s) : int
+	+write(const char* buffer, int len) : int
+	-{static} init : static bool
+	-{static} UART_RB_SIZE : static const int
+	-rxbuff : uint8_t
+	-txbuff : uint8_t
+	+isr(portBASE_TYPE* hpw) : void
+	+set_on_receive(void(*cb)(void)) : void
+	+speed(int bps) : void
+	+txbreak(bool brk) : void
+	-on_receive : void (* ) ( void )
+}
+
+
+class LpcUartConfig {
+	+pUART : LPC_USART_T*
+	+cts : LpcPinMap
+	+rts : LpcPinMap
+	+rx : LpcPinMap
+	+tx : LpcPinMap
+	+rs485 : bool
+	+data : uint32_t
+	+speed : uint32_t
+}
+
+
+class Motor {
+	+Motor(DigitalIoPin* stepper, DigitalIoPin* direction, DigitalIoPin* limOrigin, DigitalIoPin* limMax, bool originDirection)
+	-direction : DigitalIoPin*
+	-maxLimit : DigitalIoPin*
+	-minLimit : DigitalIoPin*
+	-stepper : DigitalIoPin*
+	+getOriginDirection() : bool
+	+isOriginDirection() : bool
+	-originDirection : bool
+	+readDirection() : bool
+	+readMaxLimit() : bool
+	+readMinLimit() : bool
+	+readOriginLimit() : bool
+	+readStepper() : bool
+	+setOriginDirection(bool dir) : void
+	+writeDirection(bool dir) : void
+	+writeStepper(bool step) : void
+}
+
+
+class Plotter {
+	+Plotter(Motor* xMotor_, Motor* yMotor_)
+	-xMotor : Motor*
+	-yMotor : Motor*
+	-m_xGreater : bool
+	-saveDirX : bool
+	-saveDirY : bool
+	+calculateIfRounding(float coordinate, float& previousCoordinate) : float
+	-xStepMM : float
+	-yStepMM : float
+	+calculatePps() : int
+	+getBresenhamCount() : int
+	+getBresenhamSteps() : int
+	+getCurrentX() : int
+	+getCurrentY() : int
+	+getTotalStepX() : int
+	+getTotalStepY() : int
+	-m_D : int
+	-m_count : int
+	-m_dx : int
+	-m_dy : int
+	-m_pps : int
+	-m_prevX : int
+	-m_prevY : int
+	-m_steps : int
+	-m_threshold : int
+	-m_x : int
+	-m_y : int
+	-savePlottingHeight : int
+	-savePlottingWidth : int
+	-totalStepX : int
+	-totalStepY : int
+	+{static} activePlotter : static Plotter*
+	-status : uint32_t
+	-m_power : uint8_t
+	-savePenDown : uint8_t
+	-savePenUp : uint8_t
+	-savePlottingSpeed : uint8_t
+	+bresenham() : void
+	+calibrate() : void
+	+goToOrigin() : void
+	+handleGcodeData(const Gcode::Data& data) : void
+	+initBresenhamValues(int x1_, int y1_, int x2_, int y2_) : void
+	+initLaser() : void
+	+initPen() : void
+	+isrFunction() : void
+	+moveIfInArea(bool xStep, bool yStep) : void
+	+plotLine(float x1, float y1, float x2, float y2) : void
+	+plotLineAbsolute(float x1, float y1, float x2, float y2) : void
+	+plotLineRelative(float x2, float y2) : void
+	+setLaserPower(uint8_t pw) : void
+	+setMotors(Motor* xMotor_, Motor* yMotor_) : void
+	+setPenValue(uint8_t value) : void
+	+setTotalStepX(int count) : void
+	+setTotalStepY(int count) : void
+	+setXStepInMM(int width) : void
+	+setYStepInMM(int height) : void
+	+start_polling(int pps_) : void
+	+stop_polling() : void
+	-currentX : volatile int
+	-currentY : volatile int
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+
+
+
+/' Aggregation relationships '/
+
+.LpcUart "2" *-- .Fmutex
+
+
+.LpcUartConfig "4" *-- .LpcPinMap
+
+
+.Motor "4" o-- .DigitalIoPin
+
+
+.Plotter "2" o-- .Motor
+
+
+.Plotter o-- .Plotter
+
+
+
+
+
+@enduml
