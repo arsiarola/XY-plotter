@@ -5,11 +5,25 @@
 #include "semphr.h"
 #include "Gcode.h"
 
-#define  ACCEL_THRESHOLD_PERCENT 10
+// RIT timer specific variables and functions
+using RIT_void_t = void (*)();
+extern volatile uint32_t RIT_Count; // Counter just if some callback would want to use a global counter
+extern RIT_void_t RIT_Callback;
+extern SemaphoreHandle_t RIT_Semaphore;
+
+extern void PlotterIsrFunction();
+extern void RIT_Start_polling(uint32_t count, int pps, RIT_void_t);
+extern void RIT_Start_polling(int pps, RIT_void_t);
+extern void RIT_Start_polling(int pps);
+extern void RIT_Stop_polling();
+
+// Defines and macros
+#define USE_ACCEL 1
+#define ACCEL_THRESHOLD_PERCENT 10 // How much accel and deaccel 0-50%
 #define DEFAULT_PPS 1500
-#define USE_ACCEL 0
+#define CALIBRATION_PPS 1000 // Should be small number in real hardware maybe 500
 #define BOOL_TO_NUM(boolean) (boolean ? 1 : 0)
-#define MOTORS_NULL(motorx, motory) ((motorx == nullptr || motory == nullptr) ?\
+#define MOTORS_NULL(xMotor, yMotor) ((xMotor == nullptr || yMotor == nullptr) ?\
         (ITM_print("Atleast one motor not initalised! exiting %s\n", __FUNCTION__) || true) :\
         false)
 
@@ -31,24 +45,25 @@ public:
     static Plotter* activePlotter;
     void setMotors(Motor* xMotor_, Motor* yMotor_);
     void calibrate();
-    void start_polling(int pps_);
-    void stop_polling();
-    void moveIfInArea(bool xStep, bool yStep);
-    void bresenham();
-    void isrFunction();
-    void initBresenhamValues      (int x1_,int y1_, int x2_,int y2_);
-    void plotLine        (float x1,float y1, float x2,float y2);
-    void plotLineAbsolute(float x1,float y1, float x2,float y2);
-    void plotLineRelative(                   float x2,float y2);
+    void goToOrigin();
     void initPen();
     void setPenValue(uint8_t value);
     void initLaser();
-    void handleGcodeData(const Gcode::Data& data);
-    void goToOrigin();
-    int calculatePps();
     void setLaserPower(uint8_t pw);
 
-    float calculateIfRounding(float coordinate, float& previousCoordinate);
+    int calculatePps();
+    void start_polling(int pps_);
+    void stop_polling();
+    void isrFunction();
+
+    void moveIfInArea(bool xStep, bool yStep);
+    void bresenham();
+    void initBresenhamValues (int x1_,int y1_, int x2_,int y2_);
+    void plotLine        (float x1,float y1, float x2,float y2);
+    void plotLineAbsolute(float x1,float y1, float x2,float y2);
+    void plotLineRelative(                   float x2,float y2);
+
+    void handleGcodeData(const Gcode::Data& data);
 
     inline int getTotalStepX() { return totalStepX; };
     inline int getTotalStepY() { return totalStepY; };
@@ -100,18 +115,6 @@ private:
     int  m_pps = DEFAULT_PPS;
     int  m_threshold;
 };
-
-// RIT timer specific variables and functions
-using RIT_void_t = void (*)();
-extern volatile uint32_t RIT_Count;
-extern RIT_void_t RIT_Callback;
-extern SemaphoreHandle_t RIT_Semaphore;
-
-extern void PlotterIsrFunction();
-extern void RIT_Start_polling(uint32_t count, int pps, RIT_void_t);
-extern void RIT_Start_polling(int pps, RIT_void_t);
-extern void RIT_Start_polling(int pps);
-extern void RIT_Stop_polling();
 
 
 #endif /* PLOTTER_H_ */

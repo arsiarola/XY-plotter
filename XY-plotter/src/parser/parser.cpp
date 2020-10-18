@@ -11,13 +11,13 @@
 
 static Gcode::Data data;
 
-static Gcode G1  = Gcode(Gcode::Letter::G, Gcode::Number::_1 , g1ExtractData); // go to position
+static Gcode G1  = Gcode(Gcode::Letter::G, Gcode::Number::_1 , g1ExtractData);  // go to position
 static Gcode G28 = Gcode(Gcode::Letter::G, Gcode::Number::_28, g28ExtractData); // Go to origin
-static Gcode M1  = Gcode(Gcode::Letter::M, Gcode::Number::_1 , m1ExtractData); // set penpos
-static Gcode M2  = Gcode(Gcode::Letter::M, Gcode::Number::_2 , m2ExtractData); //Save pen up/do wn
-static Gcode M4  = Gcode(Gcode::Letter::M, Gcode::Number::_4 , m4ExtractData); // set laser po wer
-static Gcode M5  = Gcode(Gcode::Letter::M, Gcode::Number::_5 , m5ExtractData); // save stepper directions, area and speed
-static Gcode M10 = Gcode(Gcode::Letter::M, Gcode::Number::_10, m10ExtractData); // reply to mdra w with all values
+static Gcode M1  = Gcode(Gcode::Letter::M, Gcode::Number::_1 , m1ExtractData);  // set penpos
+static Gcode M2  = Gcode(Gcode::Letter::M, Gcode::Number::_2 , m2ExtractData);  // save pen up/do wn
+static Gcode M4  = Gcode(Gcode::Letter::M, Gcode::Number::_4 , m4ExtractData);  // set laser po wer
+static Gcode M5  = Gcode(Gcode::Letter::M, Gcode::Number::_5 , m5ExtractData);  // save stepper directions, area and speed
+static Gcode M10 = Gcode(Gcode::Letter::M, Gcode::Number::_10, m10ExtractData); // reply to mdraw with all values
 static Gcode M11 = Gcode(Gcode::Letter::M, Gcode::Number::_11, m11ExtractData); // get the limit switches from plotter
 
 #define GCODE_SIZE 8
@@ -44,7 +44,7 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         return;
     }
 
-    Gcode::Id id =  CREATE_GCODE_ID(letter, number);
+    Gcode::Id id = CREATE_GCODE_ID(letter, number);
     for (uint8_t i = 0; i < GCODE_SIZE; ++i) {
         if (gcodes[i]->getId() == id) {
             found = true;
@@ -55,7 +55,6 @@ void parseCode(const char *str, QueueHandle_t &queue) {
                 }
             }
 
-
             else {
                 ITM_print("couldn't extract the data\n");
             }
@@ -63,14 +62,14 @@ void parseCode(const char *str, QueueHandle_t &queue) {
         }
     }
 
-    // NO matter if we found it or not send OK if not M10 or M11
+    // NO matter if we found gcode or not, send OK, if not M10 or M11 (these will send ok from plotter with values)
     // Since even if invalid data we cannot just get stuck on to this
 	if (data.id != M10.getId() && data.id != M11.getId()) {
         USB_send((uint8_t *) OK_MESSAGE, strlen(OK_MESSAGE));
-        ITM_print("send OOKKK\n");
+        ITM_print("Send OK\n");
     }
     else{
-        ITM_print("NOTTT send   OOKKK\n");
+        ITM_print("Dont send OK\n");
     }
 
     if (!found) {
@@ -83,6 +82,8 @@ void parseCode(const char *str, QueueHandle_t &queue) {
 
 
 /*FUNCTIONS*/
+// Each gcode has its own extract function that we attach to the corresponding gcode variable,
+// by a callback function.
 
 /* Set penpos */
 bool m1ExtractData(const char *str) {

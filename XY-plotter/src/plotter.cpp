@@ -40,7 +40,7 @@ void Plotter::calibrate() {
     activePlotter = this;
     goToOrigin();
     for (int i = 0; i < CALIBRATE_RUNS; ++i) {
-        RIT_Start_polling(500, []() {
+        RIT_Start_polling(CALIBRATION_PPS, []() {
             portBASE_TYPE xHigherPriorityWoken = pdFALSE;
             bool xStep = !activePlotter->xMotor->readMaxLimit();
             bool yStep = !activePlotter->yMotor->readMaxLimit();
@@ -92,7 +92,7 @@ void Plotter::goToOrigin() {
 	xMotor->writeDirection(xMotor->getOriginDirection());
 	yMotor->writeDirection(yMotor->getOriginDirection());
 
-    RIT_Start_polling(500, []() {
+    RIT_Start_polling(CALIBRATION_PPS, []() {
         portBASE_TYPE xHigherPriorityWoken = pdFALSE;
         bool xStep = !activePlotter->xMotor->readOriginLimit();
         bool yStep = !activePlotter->yMotor->readOriginLimit();
@@ -121,6 +121,7 @@ void Plotter::goToOrigin() {
 }
 
 // The printable area is (totalStepX - 2) x (totalStepY - 2)
+// since the steps when hit limit switch, are not added to total counts.
 // It cannot hit all limit switches then it cannot print in limit switches' area
 void Plotter::moveIfInArea(bool xStep, bool yStep) {
     if (MOTORS_NULL(xMotor, yMotor)) {
@@ -218,6 +219,7 @@ int Plotter::calculatePps() {
     return pps;
 }
 
+//
 void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
     plotLine(
         x1 + ((float)currentX/xStepMM),
@@ -226,6 +228,7 @@ void Plotter::plotLineAbsolute(float x1,float y1, float x2,float y2) {
         y2
     );
 }
+
 
 void Plotter::plotLineRelative(float x2,float y2) {
     plotLine(
@@ -236,6 +239,9 @@ void Plotter::plotLineRelative(float x2,float y2) {
     );
 }
 
+// Takes starting point (x1,y1) and ending point (x2,y2)
+// these are just tell what kind of line to draw and which direction from current position
+// The parameters are in mdraw
 void Plotter::plotLine(float x1,float y1, float x2,float y2) {
     if ((status & CALIBRATED) == 0) {
         ITM_print("Plotter not calibrated exiting plotting\n");
@@ -253,11 +259,21 @@ void Plotter::plotLine(float x1,float y1, float x2,float y2) {
         round(x2*xStepMM),
         round(y2*yStepMM)
     );
+
+
 #if USE_ACCEL == 1
-       start_polling(calculatePps());
+   // Laser has to have constant speed
+   if(m_power > 0) {
+		start_polling(m_pps);
+   }
+   else {
+		// calculate starting speed
+		start_polling(calculatePps());
+   }
 #else
-       start_polling(m_pps);
+ 		start_polling(m_pps);
 #endif /*USE_ACCEL*/
+
     xSemaphoreTake(RIT_Semaphore, portMAX_DELAY);
 }
 
@@ -320,97 +336,9 @@ void Plotter::setLaserPower(uint8_t pw){
 
 }
 
-void Plotter::handleGcodeData(const Gcode::Data &data) {
-    switch (data.id) {
-        case Gcode::Id::G1:
-        case Gcode::Id::G28:
-            UART_print("%f, %f, %d",
-                        data.data.g1.moveX,
-                        data.data.g1.moveY,
-                        data.data.g1.relative
-                       );
-            if (data.data.g1.relative) {
-                plotLineRelative(
-                    data.data.g1.moveX, data.data.g1.moveY
-                );
-            }
-            else {
-            		plotLineAbsolute(
-                		0,0,
-						data.data.g1.moveX, data.data.g1.moveY
-                	);
-            }
-            break;
 
-        case Gcode::Id::M1:
-            UART_print("%u", data.data.m1.penPos);
-            setPenValue(data.data.m1.penPos);
-            vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the pen up or down in the sim
-            break;
-
-        case Gcode::Id::M2:
-            UART_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
-            savePenUp   = data.data.m2.savePenUp;
-            savePenDown = data.data.m2.savePenDown;
-            break;
-
-        case Gcode::Id::M4:
-            UART_print("%u", data.data.m4.laserPower);
-            setLaserPower(data.data.m4.laserPower);
-            vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the laser off in the sim
-            break;
-
-        case Gcode::Id::M5:
-            UART_print("%d, %d, %u, %u, %u",
-                        data.data.m5.dirX,
-                        data.data.m5.dirY,
-                        data.data.m5.height,
-                        data.data.m5.width,
-                        data.data.m5.speed
-                       );
-
-            saveDirX           = data.data.m5.dirX;
-            saveDirY           = data.data.m5.dirY;
-            savePlottingHeight = data.data.m5.height;
-            savePlottingWidth  = data.data.m5.width;
-            savePlottingSpeed  = data.data.m5.speed;
-
-            xMotor->setOriginDirection(saveDirX); // update motor directions
-            yMotor->setOriginDirection(saveDirY);
-            calibrate();
-            break;
-
-        case Gcode::Id::M10:
-        	do {
-            char buffer[64];
-            snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),
-                        savePlottingWidth,
-                        savePlottingHeight,
-                        saveDirX ? 1 : 0,
-                        saveDirY ? 1 : 0,
-                        savePlottingSpeed,
-                        savePenUp,
-                        savePenDown
-                        );
-            USB_send((uint8_t *) buffer, strlen(buffer));
-        	} while(0); // do while 0 so we can create the local buffer variable
-            break;
-
-        case Gcode::Id::M11:
-        	do {
-            char buffer[32];
-            snprintf(buffer, 32, Gcode::toFormat(CREATE_GCODE_ID('M', 11)),
-                    xMotor->readMinLimit(),
-                    xMotor->readMaxLimit(),
-                    yMotor->readMinLimit(),
-                    yMotor->readMaxLimit()
-                        );
-            USB_send((uint8_t *) buffer, strlen(buffer));
-        	} while(0);
-            break;
-    }
-}
-
+// Function to be used in RIT, that uses active plotter, since RIT_callback is not type of
+// (Plotter::*) we cant use member functions, but have to use "global functions"
 void PlotterIsrFunction() {
     if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction();
 }
@@ -430,20 +358,18 @@ void Plotter::isrFunction() {
 
     else {
 		bresenham();
-		// Laser running with the consistent velocity
-    	if(m_power > 0)
-    	       start_polling(m_pps);
-    	else{
+		// Laser will run with the consistent velocity
+    	if(m_power == 0) {
 #if USE_ACCEL == 1
+    		// calculate new pps according to where we are in plotting the line
     		start_polling(calculatePps());
-#else
-    		start_polling(m_pps);
 #endif /*USE_ACCEL*/
     	}
    }
-    portEND_SWITCHING_ISR(xHigherPriorityWoken);
+   portEND_SWITCHING_ISR(xHigherPriorityWoken);
 }
 
+// RIT FUNCTIONS
 extern "C" {
     void RIT_IRQHandler(void) {
         Chip_RIT_ClearIntStatus(LPC_RITIMER); // clear IRQ flag
@@ -497,5 +423,98 @@ void Plotter::start_polling(int pps) {
 
 void Plotter::stop_polling() {
     RIT_Stop_polling();
+}
+
+void Plotter::handleGcodeData(const Gcode::Data &data) {
+    switch (data.id) {
+    // G1 and G28 are handled as same since they contain the same data
+	case Gcode::Id::G1:
+	case Gcode::Id::G28:
+		UART_print("%f, %f, %d",
+					data.data.g1.moveX,
+					data.data.g1.moveY,
+					data.data.g1.relative
+				   );
+		if (data.data.g1.relative) {
+			plotLineRelative(
+				data.data.g1.moveX, data.data.g1.moveY
+			);
+		}
+		else {
+				plotLineAbsolute(
+					0,0,
+					data.data.g1.moveX, data.data.g1.moveY
+				);
+		}
+		break;
+
+	case Gcode::Id::M1:
+		UART_print("%u", data.data.m1.penPos);
+		setPenValue(data.data.m1.penPos);
+		vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the pen up or down
+		break;
+
+	case Gcode::Id::M2:
+		UART_print("%u, %u", data.data.m2.savePenUp, data.data.m2.savePenDown);
+		savePenUp   = data.data.m2.savePenUp;
+		savePenDown = data.data.m2.savePenDown;
+		break;
+
+	case Gcode::Id::M4:
+		UART_print("%u", data.data.m4.laserPower);
+		setLaserPower(data.data.m4.laserPower);
+		vTaskDelay(configTICK_RATE_HZ / 5); // Time to make sure that the laser off/on
+		break;
+
+	case Gcode::Id::M5:
+		UART_print("%d, %d, %u, %u, %u",
+					data.data.m5.dirX,
+					data.data.m5.dirY,
+					data.data.m5.height,
+					data.data.m5.width,
+					data.data.m5.speed
+				   );
+
+		saveDirX           = data.data.m5.dirX;
+		saveDirY           = data.data.m5.dirY;
+		savePlottingHeight = data.data.m5.height;
+		savePlottingWidth  = data.data.m5.width;
+		savePlottingSpeed  = data.data.m5.speed;
+
+		xMotor->setOriginDirection(saveDirX); // update motor directions
+		yMotor->setOriginDirection(saveDirY);
+		calibrate(); // need to calibrate since the origin could be in a different position
+		break;
+
+	case Gcode::Id::M10:
+		// do while 0 so we can create the local buffer variable
+		do {
+			char buffer[64];
+			snprintf(buffer, 64, Gcode::toFormat(CREATE_GCODE_ID('M', 10)),
+						savePlottingWidth,
+						savePlottingHeight,
+						saveDirX ? 1 : 0,
+						saveDirY ? 1 : 0,
+						savePlottingSpeed,
+						savePenUp,
+						savePenDown
+			);
+			USB_send((uint8_t *) buffer, strlen(buffer));
+		} while(0);
+		break;
+
+	case Gcode::Id::M11:
+		do {
+			char buffer[32];
+			snprintf(buffer, 32, Gcode::toFormat(CREATE_GCODE_ID('M', 11)),
+					xMotor->readMinLimit(),
+					xMotor->readMaxLimit(),
+					yMotor->readMinLimit(),
+					yMotor->readMaxLimit()
+			);
+			USB_send((uint8_t *) buffer, strlen(buffer));
+			} while(0);
+		break;
+    }
 }
 

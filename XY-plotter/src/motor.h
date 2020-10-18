@@ -23,12 +23,12 @@ public:
     bool readMaxLimit()    { return originDirection == CLOCKWISE ? maxLimit->read() : minLimit->read(); }
     bool readOriginLimit() { return readMinLimit(); } // "Alias" for readMinLimit
 
-    void writeStepper(bool step)  { return stepper->write(step); }
-    void writeDirection(bool dir) { return direction->write(dir); }
+    void writeStepper(bool step)  { stepper->write(step); }
+    void writeDirection(bool dir) { direction->write(dir); }
 
     bool isOriginDirection() { return direction->read() ==  originDirection; }
 
-    bool getOriginDirection() { return originDirection; }
+    bool getOriginDirection() 	      { return originDirection; }
     void setOriginDirection(bool dir) { originDirection = dir; }
 private:
     DigitalIoPin* stepper;
@@ -36,7 +36,5 @@ private:
     DigitalIoPin* minLimit;
     DigitalIoPin* maxLimit;
     bool originDirection;
-
-
 };
 #endif /* MOTOR_H_ */

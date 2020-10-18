@@ -19,12 +19,14 @@ LpcUartConfig cfg1 = {
 
 
 namespace Printer {
-    LpcUart *debug_uart = new LpcUart(cfg1); // Global mdraw communication variable
+    LpcUart *debug_uart = new LpcUart(cfg1); // Global uart communication variable
 
+    // Need to create this function since for to be used in a macro, since the preprocessor cannot use debug_uart variable yet
     int uart_print(const char *str) {
         return Printer::debug_uart->write(str);
     }
 
+// printf style printing, requires a callback for the actual printing of the "string"
     int arg_print(int (*callback) (const char *), const char *format, ...) {
         char buffer [ARG_BUFFER_SIZE];
         va_list argptr;

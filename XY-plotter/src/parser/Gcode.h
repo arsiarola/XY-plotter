@@ -6,7 +6,7 @@
 
 #define OK_MESSAGE "OK\r\n"
 
-// have mask just in case we use bigger value in parameter and for storing
+// Create unique 16 bit ID char letter being the 8 MSB and number 8 LSB
 // Type cast so we dont have to remember it in code
 #define CREATE_GCODE_ID(letter, number) ((Gcode::Id)(((letter << 8) | (number)) & 0xFFFF))
 #define GET_LETTER_FROM_ID(id) ((id >> 8) & 0xFF)
@@ -15,8 +15,8 @@
 class Gcode {
 public:
     using array = std::array<char, 4>;
-    //Letter and number are there just to limit the options so we use correct gcodes
-    // The class could handle all combinations of letters and 0-255
+    //Letter and number enums are there just to limit our options so we use correct gcodes
+    // The class could handle all combinations of letters and numbers 0-255
     enum Letter : char { M = 'M', G = 'G' };
     enum Number : uint8_t { _1 = 1, _2 = 2, _4 = 4, _5 = 5, _10 = 10, _11 = 11, _28 = 28 };
     enum Id : uint16_t {
@@ -30,13 +30,16 @@ public:
         M11 = CREATE_GCODE_ID(Letter::M, Number::_11)
     };
 
+    // Union used for holding actual data since we will be using one of the structs at a time
+    // This will greatly reduce the Freertos Queue size
     typedef struct Data {
         Id id;
         union data {
             struct m1  { uint8_t penPos; } m1;
             struct m2  { uint8_t savePenUp; uint8_t savePenDown; } m2;
             struct m4  { uint8_t laserPower; } m4;
-            struct m5  { // if changing the alignment so speed if after dirY for less memory it cant get width data
+            struct m5  {
+            	// if changing the alignment so speed is after dirY for better memory alignment it cant get width data with sscanf
                 bool dirX ;
                 bool dirY ;
                 uint32_t height ;
@@ -52,17 +55,17 @@ public:
     } Data;
 
 
-    Gcode(Letter letter_, Number number_, bool (*functionPtr_)(const char *str) = nullptr)  :
-        letter(letter_),
-        number(number_),
+    Gcode(Letter letter, Number number, bool (*functionPtr_)(const char *str) = nullptr)  :
+        letter(letter),
+        number(number),
         id(CREATE_GCODE_ID(letter, number)),
         functionPtr(functionPtr_)
     { }
     static const char* toFormat(const Id& id);
-    static array toString(const Letter& letter, const Number& number);
-    static array toString(const Id& id);
+    static array toArray(const Letter& letter, const Number& number);
+    static array toArray(const Id& id);
     const char* toFormat() { return toFormat(id); }
-    array toString() { return toString(letter, number); }
+    array toString() { return toArray(letter, number); }
     Id getId() { return id; };
     bool callback(const char *str);
     virtual ~Gcode() { };

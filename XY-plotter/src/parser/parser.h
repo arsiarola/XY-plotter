@@ -4,7 +4,6 @@
 #include "queue.h"
 
 void parseCode(const char *s, QueueHandle_t &queue);
-void trimTrailing(char * str);
 
 bool m1ExtractData(const char *str);
 bool m2ExtractData (const char *str);

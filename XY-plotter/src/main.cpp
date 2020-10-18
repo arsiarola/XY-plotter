@@ -117,7 +117,7 @@ static void vTask2(void *pvParameters) {
 	while (true) {
 		if (xQueueReceive(queue, &data,
 		portMAX_DELAY) == pdTRUE) {
-			UART_print("ID: %s\n\rValues: ", Gcode::toString(data.id).data());
+			UART_print("ID: %s\n\rValues: ", Gcode::toArray(data.id).data());
 			UART_print("\r\n");
 			plotter->handleGcodeData(data);
 		}
@@ -154,6 +154,7 @@ DigitalIoPin* getCorrespondingLimit(DigitalIoPin* step, DigitalIoPin* direction,
     currentDirection->write(!currentDirection->read());
     currentStepper->write(true);
     currentStepper->write(false);
+    return hitLimitSwitch;
 }
 
 static void vTask3(void *pvParameters) {
@@ -176,17 +177,11 @@ static void vTask3(void *pvParameters) {
 	// Detect which limit switch is connected  on which axis
 	while (lim1->read() || lim2->read() || lim3->read() || lim4->read()) {}
 
-     getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
-     DigitalIoPin* xLimMin = hitLimitSwitch;
+	DigitalIoPin* xLimMin = getCorrespondingLimit(xStep, xDirection, CLOCKWISE);
+	DigitalIoPin* xLimMax = getCorrespondingLimit(xStep, xDirection, COUNTER_CLOCKWISE);
 
-     getCorrespondingLimit(xStep, xDirection, COUNTER_CLOCKWISE);
-     DigitalIoPin* xLimMax = hitLimitSwitch;
-
-     getCorrespondingLimit(yStep, yDirection, CLOCKWISE);
-     DigitalIoPin* yLimMin = hitLimitSwitch;
-
-     getCorrespondingLimit(yStep, yDirection, COUNTER_CLOCKWISE);
-     DigitalIoPin* yLimMax = hitLimitSwitch;
+    DigitalIoPin* yLimMin = getCorrespondingLimit(yStep, yDirection, CLOCKWISE);
+    DigitalIoPin* yLimMax = getCorrespondingLimit(yStep, yDirection, COUNTER_CLOCKWISE);
 
 
     xMotor = new Motor (xStep, xDirection, xLimMin, xLimMax, CLOCKWISE);
@@ -196,14 +191,6 @@ static void vTask3(void *pvParameters) {
 	plotter->calibrate();
 	xEventGroupSetBits(eventBit, INIT_VARIABLE_BIT);
 	vTaskSuspend(initVariablesHandle);
-}
-
-extern "C" {
-void vConfigureTimerForRunTimeStats(void) {
-	Chip_SCT_Init(LPC_SCTSMALL1);
-	LPC_SCTSMALL1->CONFIG = SCT_CONFIG_32BIT_COUNTER;
-	LPC_SCTSMALL1->CTRL_U = SCT_CTRL_PRE_L(255) | SCT_CTRL_CLRCTR_L; // set prescaler to 256 (255 + 1), and start timer
-}
 }
 
 int main() {

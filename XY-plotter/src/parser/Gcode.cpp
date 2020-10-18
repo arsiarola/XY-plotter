@@ -16,7 +16,7 @@ const char* Gcode::toFormat(const Id& id_) {
                 "A%d"; //A0
 
         case G28:
-            return "G28 ";
+            return "G28";
 
         case M1:
             return "M1 %u";
@@ -27,7 +27,7 @@ const char* Gcode::toFormat(const Id& id_) {
                 "U%u "
                 "D%u";
         case M4:
-            return "M4 " "%u";
+            return "M4 %u";
 
         case M5:
             return
@@ -59,12 +59,13 @@ const char* Gcode::toFormat(const Id& id_) {
     }
 }
 
-Gcode::array Gcode::toString(const Letter& letter, const Number& number) {
+// std::array so we can easily return an array allocated from stack which seems impossible in C
+Gcode::array Gcode::toArray(const Letter& letter, const Number& number) {
     std::array<char, 4> str;
     std::snprintf(str.data(), 4, "%c%u", letter, number);
     return str;
 }
 
-Gcode::array Gcode::toString(const Id& id) {
-    return toString((Letter)GET_LETTER_FROM_ID(id), (Number)GET_NUMBER_FROM_ID(id));
+Gcode::array Gcode::toArray(const Id& id) {
+    return toArray((Letter)GET_LETTER_FROM_ID(id), (Number)GET_NUMBER_FROM_ID(id));
 }
