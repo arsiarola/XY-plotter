@@ -338,7 +338,7 @@ void Plotter::setLaserPower(uint8_t pw){
 
 
 // Function to be used in RIT, that uses active plotter, since RIT_callback is not type of
-// (Plotter::*) we cant use member functions, but have to use "global functions"
+// (Plotter::*) cannot use member functions, but have to use "global functions"
 void PlotterIsrFunction() {
     if (Plotter::activePlotter != nullptr) Plotter::activePlotter->isrFunction();
 }
@@ -361,7 +361,7 @@ void Plotter::isrFunction() {
 		// Laser will run with the consistent velocity
     	if(m_power == 0) {
 #if USE_ACCEL == 1
-    		// calculate new pps according to where we are in plotting the line
+    		// calculate new pps according to where plotting the line
     		start_polling(calculatePps());
 #endif /*USE_ACCEL*/
     	}
